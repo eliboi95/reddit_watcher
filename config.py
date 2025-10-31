@@ -1,8 +1,11 @@
 import os
+from dotenv import load_dotenv
 
 """
-Set the enviromen variables in the bash console with export command
+Loading all env variables
 """
+
+load_dotenv()
 # Reddit API
 REDDIT_CLIENT_ID = os.getenv("REDDIT_CLIENT_ID")
 REDDIT_CLIENT_SECRET = os.getenv("REDDIT_CLIENT_SECRET")

@@ -1,7 +1,16 @@
 import praw
+from sqlalchemy import false
 import config
 import time
-from prawcore.exceptions import RequestException, ResponseException, ServerError
+from typing import Generator, cast
+from praw.models import Comment, Submission
+from prawcore.exceptions import (
+    RequestException,
+    ResponseException,
+    ServerError,
+    NotFound,
+    Redirect,
+)
 from db.models import (
     get_watched_subreddits,
     get_watched_users,
@@ -23,68 +32,91 @@ def get_reddit():
     )
 
 
-def redditor_exists():
+def redditor_exists(name):
     """
-    TODO: Implement function to check if redditor exists function to be called in telegram_client (probably)
+    Function to check if redditor exists
     """
-    return
+    try:
+        reddit = get_reddit()
+        reddit.redditor(name).id
+    except NotFound:
+        return False
+    return True
+
+
+def subreddit_exists(name):
+    """
+    Function to check if subreddit exists
+    """
+    try:
+        reddit = get_reddit()
+        reddit.subreddit(name).id
+    except Redirect:
+        return False
+    return True
 
 
 def watch_loop():
     reddit = get_reddit()
-    session = SessionLocal()
-
+    session = None
     last_reload = 0
+    sub_str = ""
+    comment_stream: Generator[Comment | None, None, None] = cast(
+        Generator[Comment | None, None, None], iter([])
+    )
+    submission_stream: Generator[Submission | None, None, None] = cast(
+        Generator[Submission | None, None, None], iter([])
+    )
+    users = []
+    subs = []
 
     while True:
         try:
-            """
-            When 2 seconds have passed since the last time the watched lists for redditors and subredditor
-            and the Telegram Users has been loaded, it loads it in
-            """
             if time.time() - last_reload > 2:
+                if session:
+                    session.close()
+                session = SessionLocal()
                 subs = get_watched_subreddits(session)
+                subnames = [str(s) for s in subs]
                 users = get_watched_users(session)
+                new_sub_str = "+".join(subnames) if subs else "test"
 
-                sub_str = "+".join(subs) if subs else "test"
-                subreddit = reddit.subreddit(sub_str)
+                if new_sub_str != sub_str:
+                    sub_str = new_sub_str
+                    subreddit = reddit.subreddit(sub_str)
+                    comment_stream: Generator[Comment | None, None, None] = (
+                        subreddit.stream.comments(skip_existing=False, pause_after=-1)
+                    )
+                    submission_stream: Generator[Submission | None, None, None] = (
+                        subreddit.stream.submissions(
+                            skip_existing=False, pause_after=-1
+                        )
+                    )
 
                 last_reload = time.time()
 
-            # print("looking for coments")
-
-            for comment in subreddit.stream.comments(
-                skip_existing=False, pause_after=0
-            ):
-                """
-                Start to look for commends. skip_existing needs to be false or comments get missed.
-                Allready seen comments get filtered on the DB level.
-                """
+            # process comments
+            for comment in comment_stream:
                 if comment is None:
-                    print("breaking comments loop")
+                    time.sleep(1)
                     break
-                if str(comment.author) not in users:
-                    print("not watching author")
+                author = str(comment.author)
+                if author not in users:
                     continue
-                if is_muted(session, str(comment.author)):
-                    print("Redditor is muted")
+                if is_muted(session, author):
                     continue
                 add_comment(session, comment)
-                print(f"added comment:\n{comment.author}")
+                print(f"added comment: {author}")
 
-            for submission in subreddit.stream.submissions(
-                skip_existing=False, pause_after=0
-            ):
-                """
-                Start to look for submissions. skip_existing needs to be false or submissions get missed.
-                Allready seen submissions get filterd on the DB level.
-                """
+            # process submissions similarly...
+            for submission in submission_stream:
                 if submission is None:
+                    time.sleep(1)
                     break
-                if str(submission.author) not in users:
+                author = str(submission.author)
+                if author not in users:
                     continue
-                if is_muted(session, str(submission.author)):
-                    print("Redditor is muted")
+                if is_muted(session, author):
                     continue
                 add_submission(session, submission)
 
@@ -99,6 +131,12 @@ def watch_loop():
         except Exception as e:
             print(f"[Unexpected Error] {e}")
             time.sleep(10)
+        finally:
+            # optionally keep session open for reuse; otherwise ensure we close it
+            pass
+
+    if session:
+        session.close()
 
 
 if __name__ == "__main__":

@@ -3,23 +3,39 @@ import signal
 import sys
 import time
 
+
+def start_subprocess(cmd):
+    try:
+        return subprocess.Popen(cmd)
+    except Exception as e:
+        print(f"Failed to start {cmd}: {e}")
+        return None
+
+
 """Start both scripts as subprocesses"""
-p1 = subprocess.Popen(["python3", "telegram_client.py"])
+p1 = start_subprocess(["python3", "telegram_client.py"])
 time.sleep(2)
-p2 = subprocess.Popen(["python3", "reddit_client.py"])
+p2 = start_subprocess(["python3", "reddit_client.py"])
 
 
 def handle_exit(sig, frame):
     print("\nStopping both scripts...")
-
-    """Gracefully terminate both processes"""
-    p1.terminate()
-    p2.terminate()
-
-    """Wait a bit to let them shut down cleanly"""
-    p1.wait(timeout=5)
-    p2.wait(timeout=5)
-
+    for p in (p1, p2):
+        if p and p.poll() is None:
+            try:
+                p.terminate()
+            except Exception:
+                pass
+    # wait with timeout
+    for p in (p1, p2):
+        if p:
+            try:
+                p.wait(timeout=5)
+            except Exception:
+                try:
+                    p.kill()
+                except Exception:
+                    pass
     print("Both scripts stopped.")
     sys.exit(0)
 
@@ -33,6 +49,5 @@ print("Both scripts started. Press Ctrl+C to stop.")
 try:
     while True:
         time.sleep(1)
-        pass
 except KeyboardInterrupt:
     handle_exit(None, None)

@@ -97,7 +97,7 @@ def add_watched_reddit(session, subreddit_name: str):
             existing.active = True
             safe_commit(session)
             return f"Reactivated subreddit: {subreddit_name}"
-    return f"{subreddit_name} is already beeing watched"
+        return f"{subreddit_name} is already beeing watched"
 
     new_subreddit = WatchedSubreddit(name=subreddit_name, active=True)
     session.add(new_subreddit)
@@ -132,6 +132,16 @@ def get_watched_users(session):
     """
     return [
         row.username for row in session.query(WatchedUser).filter_by(active=True).all()
+    ]
+
+
+def get_watched_users_with_rating(session):
+    """
+    Gets all the redditors on the watchlist including the rating
+    """
+    return [
+        (row.username, row.rating)
+        for row in session.query(WatchedUser).filter_by(active=True).all()
     ]
 
 
