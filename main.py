@@ -32,6 +32,7 @@ print("Both scripts started. Press Ctrl+C to stop.")
 """Keep main.py alive while subprocesses run"""
 try:
     while True:
+        time.sleep(1)
         pass
 except KeyboardInterrupt:
     handle_exit(None, None)

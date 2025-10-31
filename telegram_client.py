@@ -42,9 +42,8 @@ async def list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     session = SessionLocal()
     users = get_watched_users(session)
-    session.close()
-
     users = [user + " " + str(get_rating(session, user)) for user in users]
+    session.close()
 
     user_list = "\n".join(users) or "No users being watched"
     await context.bot.send_message(
@@ -115,7 +114,7 @@ async def mute(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     msg = update.message.text.split(" ")[1:]
     redditor = msg[0]
-    time = int(msg[1])
+    mute_time = int(msg[1])
     timescale = (
         60
         if len(msg) < 3
@@ -132,7 +131,7 @@ async def mute(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     session = SessionLocal()
 
-    mute_user(session, redditor, time * timescale)
+    mute_user(session, redditor, mute_time * timescale)
 
     session.close()
 
@@ -146,7 +145,7 @@ async def unmute(update: Update, context: ContextTypes.DEFAULT_TYPE):
     Unmute a Redditor
     """
 
-    redditor = update.message.text.split(" ")[1:][0].strip()
+    redditor = update.message.text.split(" ")[1:][0]
     session = SessionLocal()
     unmute_user(session, redditor)
     session.close()
