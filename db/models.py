@@ -1,0 +1,262 @@
+from sqlalchemy import create_engine, Column, Integer, String, Boolean
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.exc import OperationalError
+import time
+
+# Use SQLite for simplicity
+DB_URL = "sqlite:///reddit_watcher.db"
+
+Base = declarative_base()
+engine = create_engine(DB_URL, echo=False)
+SessionLocal = sessionmaker(bind=engine)
+
+"""Creating the Models for the DB"""
+
+
+class WatchedSubreddit(Base):
+    __tablename__ = "watched_subreddits"
+    id = Column(Integer, primary_key=True)
+    name = Column(String, unique=True)
+    active = Column(Boolean, default=True)
+
+
+class WatchedUser(Base):
+    __tablename__ = "watched_users"
+    id = Column(Integer, primary_key=True)
+    username = Column(String, unique=True)
+    active = Column(Boolean, default=True)
+    muted_until = Column(Integer, default=0)
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+    id = Column(String, primary_key=True)  # Reddit ID
+    type = Column(String)  # "comment" or "submission"
+    author = Column(String)
+    content = Column(String)
+    url = Column(String)
+    created_utc = Column(Integer)
+    delivered = Column(Boolean, default=False)
+
+
+class TelegramUser(Base):
+    __tablename__ = "telegram_users"
+
+    id = Column(Integer, primary_key=True)
+    chat_id = Column(String, unique=True)
+    username = Column(String, nullable=True)
+    active = Column(Boolean, default=True)
+
+
+def init_db():
+    """
+    Function to initiate the DB if it doesnt exist. Only needs to be called once. If DB exists it doesnt do anything
+    """
+    Base.metadata.create_all(engine)
+
+
+def safe_commit(session, retries: int = 3, delay: float = 0.5):
+    """
+    Commit the current session with retries in case of 'database is locked' errors.
+    """
+    for attempt in range(retries):
+        try:
+            session.commit()
+            return
+        except OperationalError as e:
+            if "database is locked" in str(e).lower():
+                print(f"[DB] Database is locked, retrying ({attempt+1}/{retries})...")
+                time.sleep(delay)
+            else:
+                session.rollback()
+                raise
+    session.rollback()
+    raise RuntimeError("[DB] Failed to commit after multiple retries.")
+
+
+def get_watched_subreddits(session):
+    """
+    Gets all watched subreddits
+    """
+    return [row.name for row in session.query(WatchedSubreddit).all()]
+
+
+def add_watched_reddit(session, subreddit_name: str):
+    """
+    Adds a subreddit to the watchlist
+    """
+    subreddit_name.strip()
+
+    existing = session.query(WatchedSubreddit).filter_by(name=subreddit_name).first()
+    if existing:
+        if not existing.active:
+            existing.active = True
+            safe_commit(session)
+            return f"Reactivated subreddit: {subreddit_name}"
+    return f"{subreddit_name} is already beeing watched"
+
+    new_subreddit = WatchedSubreddit(name=subreddit_name, active=True)
+    session.add(new_subreddit)
+    safe_commit(session)
+    return f"Added new subreddit: {subreddit_name}"
+
+
+def remove_watched_reddit(session, subreddit_name: str):
+    """
+    Deactivates a Subreddit so it doesnt get watched anymore
+    """
+    subreddit_name.strip()
+
+    subreddit = session.querry(WatchedSubreddit).filter_by(name=subreddit_name).first()
+
+    if not subreddit:
+        return f"Subreddit not found: {subreddit_name}"
+
+    if not subreddit.active:
+        return f"{subreddit_name} already inactive"
+    subreddit.active = False
+    safe_commit(session)
+    return f"{subreddit_name} deactivated"
+
+
+def get_watched_users(session):
+    """
+    Gets all the redditors on the watchlist
+    """
+    return [
+        row.username for row in session.query(WatchedUser).filter_by(active=True).all()
+    ]
+
+
+def add_watched_user(session, username: str):
+    """
+    Add a redditor to the watched_users table if not already present.
+    """
+    username = username.strip()
+
+    existing = session.query(WatchedUser).filter_by(username=username).first()
+    if existing:
+        if not existing.active:
+            existing.active = True
+            safe_commit(session)
+            return f"Reactivated existing user: {username}"
+        return f"User already being watched: {username}"
+
+    new_user = WatchedUser(username=username, active=True)
+    session.add(new_user)
+    safe_commit(session)
+    return f"Added new user: {username}"
+
+
+def remove_watched_user(session, username: str):
+    """
+    Deactivates a redditor the watched_users table.
+    """
+    username = username.strip()
+
+    user = session.query(WatchedUser).filter_by(username=username).first()
+    if not user:
+        return f"User not found: {username}"
+
+    if not user.active:
+        return f"User already inactive: {username}"
+
+    user.active = False
+    safe_commit(session)
+    return f"Deactivated user: {username}"
+
+
+def add_comment(session, comment):
+    """
+    Adds a comment to the notifications table
+    """
+    notification = Notification(
+        id=comment.id,
+        type="comment",
+        author=str(comment.author),
+        content=comment.body,
+        url=f"https://reddit.com{comment.permalink}",
+        created_utc=int(comment.created_utc),
+    )
+    session.merge(notification)
+    safe_commit(session)
+
+    return "comment added"
+
+
+def add_submission(session, submission):
+    """
+    Adds a submission to the notifications table
+    """
+    notfication = Notification(
+        id=submission.id,
+        type="submission",
+        author=str(submission.author),
+        content=submission.title,
+        url=f"https://reddit.com{submission.permalink}",
+        created_utc=int(submission.created_utc),
+    )
+    session.merge(notfication)
+    safe_commit(session)
+
+    return "submission added"
+
+
+def get_pending_notifications(session):
+    """
+    Return all undelivered notifications
+    """
+    return (
+        session.query(Notification)
+        .filter_by(delivered=False)
+        .order_by(Notification.created_utc.asc())
+        .all()
+    )
+
+
+def get_notifications(session):
+    """
+    Return all notifications
+    """
+    return [[n.type, n.author, n.content] for n in session.query(Notification).all()]
+
+
+def get_active_telegram_users(session):
+    """
+    Get all active Telegram user chat IDs. They need to have written /start in the botchat to be listed
+    """
+    return [u.chat_id for u in session.query(TelegramUser).filter_by(active=True).all()]
+
+
+def add_telegram_user(session, chat_id: str, username: str = None):
+    """
+    Add or reactivate a Telegram user in the database.
+    """
+    existing = session.query(TelegramUser).filter_by(chat_id=chat_id).first()
+    if existing:
+        if not existing.active:
+            existing.active = True
+            safe_commit(session)
+            return f"Reactivated Telegram user {username or chat_id}"
+        return f"Telegram user already active: {username or chat_id}"
+
+    user = TelegramUser(chat_id=str(chat_id), username=username, active=True)
+    session.add(user)
+    safe_commit(session)
+    return f"Added new Telegram user: {username or chat_id}"
+
+
+def remove_telegram_user(session, chat_id: str):
+    """
+    Deactivate a Telegram user.
+    """
+    user = session.query(TelegramUser).filter_by(chat_id=chat_id).first()
+    if not user:
+        return f"Telegram user not found: {chat_id}"
+    if not user.active:
+        return f"Telegram user already inactive: {chat_id}"
+
+    user.active = False
+    safe_commit(session)
+    return f"Deactivated Telegram user: {chat_id}"

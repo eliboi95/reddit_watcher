@@ -1,0 +1,27 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+
+# Database file (don’t commit)
+*.db
+
+# Environment variables
+.env
+.env.*
+
+# Logs
+*.log
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# Python packaging / build artifacts
+dist/
+build/
+*.egg-info/
+
