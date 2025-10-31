@@ -7,6 +7,7 @@ from db.models import (
     get_watched_users,
     add_comment,
     add_submission,
+    is_muted,
     SessionLocal,
 )
 
@@ -20,13 +21,6 @@ def get_reddit():
         client_secret=config.REDDIT_CLIENT_SECRET,
         user_agent=config.REDDIT_USER_AGENT,
     )
-
-
-def is_muted(session, redditor):
-    """
-    TODO: Implement is_muted Check
-    """
-    return
 
 
 def redditor_exists():
@@ -45,7 +39,7 @@ def watch_loop():
     while True:
         try:
             """
-            When 60 seconds have passed since the last time the watched lists for redditors and subredditor
+            When 2 seconds have passed since the last time the watched lists for redditors and subredditor
             and the Telegram Users has been loaded, it loads it in
             """
             if time.time() - last_reload > 2:
@@ -65,13 +59,15 @@ def watch_loop():
                 """
                 Start to look for commends. skip_existing needs to be false or comments get missed.
                 Allready seen comments get filtered on the DB level.
-                TODO: implement Muted Check
                 """
                 if comment is None:
                     print("breaking comments loop")
                     break
                 if str(comment.author) not in users:
                     print("not watching author")
+                    continue
+                if is_muted(session, str(comment.author)):
+                    print("Redditor is muted")
                     continue
                 add_comment(session, comment)
                 print(f"added comment:\n{comment.author}")
@@ -82,11 +78,13 @@ def watch_loop():
                 """
                 Start to look for submissions. skip_existing needs to be false or submissions get missed.
                 Allready seen submissions get filterd on the DB level.
-                TODO: implement Muted Check
                 """
                 if submission is None:
                     break
                 if str(submission.author) not in users:
+                    continue
+                if is_muted(session, str(submission.author)):
+                    print("Redditor is muted")
                     continue
                 add_submission(session, submission)
 

@@ -173,18 +173,81 @@ def remove_watched_user(session, username: str):
     return f"Deactivated user: {username}"
 
 
-def mute_user(session, username: str, time: int):
+def is_muted(session, username):
     """
-    TODO: Mute a user for a specified time
+    Implement is_muted Check
     """
-    return
+    username = username.strip()
+    user = session.query(WatchedUser).filter_by(username=username).first()
+
+    if not user:
+        return True
+    elif time.time() - user.muted_until < 0:
+        return True
+    else:
+        return False
 
 
-def rate_user(session, username: str, time: int):
+def mute_user(session, username: str, mute_time: int):
     """
-    TODO: Rate a User
+    Mute a user for a specified time
     """
-    return
+    username = username.strip()
+
+    user = session.query(WatchedUser).filter_by(username=username).first()
+    if not user:
+        return f"User not found: {username}"
+
+    if is_muted(session, username):
+        return f"User already muted: {username}"
+
+    user.muted_until = mute_time + time.time()
+    safe_commit(session)
+    return f"Muted user: {username}"
+
+
+def unmute_user(session, username: str):
+    """
+    Unmute User
+    """
+
+    username = username.strip()
+
+    user = session.query(WatchedUser).filter_by(username=username).first()
+
+    if not user:
+        return f"User not found: {username}"
+    user.muted_until = time.time() - 1
+    safe_commit(session)
+    return f"unmuted {username}"
+
+
+def rate_user(session, username: str, rating: int):
+    """
+    Rate a User
+    """
+    username = username.strip()
+
+    user = session.query(WatchedUser).filter_by(username=username).first()
+    if not user:
+        return f"User not found: {username}"
+
+    user.rating += rating
+    safe_commit(session)
+    return f"Changed rating for: {username}"
+
+
+def get_rating(session, username: str):
+    """
+    Get the rating of a redditor
+    """
+    username = username.strip()
+
+    user = session.query(WatchedUser).filter_by(username=username).first()
+    if not user:
+        return f"User not found: {username}"
+
+    return user.rating
 
 
 """SUBMISSIONS"""
