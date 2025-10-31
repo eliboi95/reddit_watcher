@@ -22,6 +22,20 @@ def get_reddit():
     )
 
 
+def is_muted(session, redditor):
+    """
+    TODO: Implement is_muted Check
+    """
+    return
+
+
+def redditor_exists():
+    """
+    TODO: Implement function to check if redditor exists function to be called in telegram_client (probably)
+    """
+    return
+
+
 def watch_loop():
     reddit = get_reddit()
     session = SessionLocal()
@@ -51,6 +65,7 @@ def watch_loop():
                 """
                 Start to look for commends. skip_existing needs to be false or comments get missed.
                 Allready seen comments get filtered on the DB level.
+                TODO: implement Muted Check
                 """
                 if comment is None:
                     print("breaking comments loop")
@@ -67,6 +82,7 @@ def watch_loop():
                 """
                 Start to look for submissions. skip_existing needs to be false or submissions get missed.
                 Allready seen submissions get filterd on the DB level.
+                TODO: implement Muted Check
                 """
                 if submission is None:
                     break

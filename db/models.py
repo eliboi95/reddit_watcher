@@ -4,14 +4,13 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import OperationalError
 import time
 
-# Use SQLite for simplicity
 DB_URL = "sqlite:///reddit_watcher.db"
 
 Base = declarative_base()
 engine = create_engine(DB_URL, echo=False)
 SessionLocal = sessionmaker(bind=engine)
 
-"""Creating the Models for the DB"""
+"""MODELS"""
 
 
 class WatchedSubreddit(Base):
@@ -27,6 +26,7 @@ class WatchedUser(Base):
     username = Column(String, unique=True)
     active = Column(Boolean, default=True)
     muted_until = Column(Integer, default=0)
+    rating = Column(Integer, default=5)
 
 
 class Notification(Base):
@@ -75,6 +75,9 @@ def safe_commit(session, retries: int = 3, delay: float = 0.5):
     raise RuntimeError("[DB] Failed to commit after multiple retries.")
 
 
+"""SUBREDDITS"""
+
+
 def get_watched_subreddits(session):
     """
     Gets all watched subreddits
@@ -118,6 +121,9 @@ def remove_watched_reddit(session, subreddit_name: str):
     subreddit.active = False
     safe_commit(session)
     return f"{subreddit_name} deactivated"
+
+
+"""REDDITORS"""
 
 
 def get_watched_users(session):
@@ -165,6 +171,23 @@ def remove_watched_user(session, username: str):
     user.active = False
     safe_commit(session)
     return f"Deactivated user: {username}"
+
+
+def mute_user(session, username: str, time: int):
+    """
+    TODO: Mute a user for a specified time
+    """
+    return
+
+
+def rate_user(session, username: str, time: int):
+    """
+    TODO: Rate a User
+    """
+    return
+
+
+"""SUBMISSIONS"""
 
 
 def add_comment(session, comment):
@@ -220,6 +243,9 @@ def get_notifications(session):
     Return all notifications
     """
     return [[n.type, n.author, n.content] for n in session.query(Notification).all()]
+
+
+"""TELEGRAM USERS"""
 
 
 def get_active_telegram_users(session):

@@ -45,6 +45,12 @@ async def list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+async def listsubs(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    TODO: Implement listsubs command for subreddits
+    """
+
+
 async def add(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Telegram Bot Command to add a redditor to be watched. Rating system needs to be implemented. /add <redditor> *<rating>*
@@ -90,16 +96,16 @@ async def remove(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def mute(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    Telegram Bot Command to mute a reditor (logic in reddit client not implemented). /mute <redditor> <time> *h, d, y*
+    TODO: Telegram Bot Command to mute a reditor (logic in reddit client not implemented). /mute <redditor> <time> *h, d, y*
     """
     await context.bot.send_message(
         chat_id=update.effective_chat.id, text="muted {redditor}"
     )
 
 
-sync def rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    Telegram Bot Command to rate a redditor. Logic not implemented. /rate <redditor> <int>
+    TODO: Telegram Bot Command to rate a redditor. Logic not implemented. /rate <redditor> <int>
     """
     await context.bot.send_message(
         chat_id=update.effective_chat.id, text="changed rating"
