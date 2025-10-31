@@ -49,6 +49,7 @@ async def listsubs(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     TODO: Implement listsubs command for subreddits
     """
+    return
 
 
 async def add(update: Update, context: ContextTypes.DEFAULT_TYPE):
