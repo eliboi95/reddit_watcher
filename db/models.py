@@ -49,6 +49,39 @@ class TelegramUser(Base):
     active = Column(Boolean, default=True)
 
 
+"""
+EXCEPTIONS
+"""
+
+
+class UserNotFoundError(Exception):
+    pass
+
+
+class UserAlreadyInactiveError(Exception):
+    pass
+
+
+class UserAlreadyActiveError(Exception):
+    pass
+
+
+class UserAlreadyMutedError(Exception):
+    pass
+
+
+class SubredditNotFoundError(Exception):
+    pass
+
+
+class SubredditAlreadyInactiveError(Exception):
+    pass
+
+
+class SubredditAlreadyActiveError(Exception):
+    pass
+
+
 def init_db():
     """
     Function to initiate the DB if it doesnt exist. Only needs to be called once. If DB exists it doesnt do anything
@@ -97,7 +130,7 @@ def add_watched_reddit(session, subreddit_name: str):
             existing.active = True
             safe_commit(session)
             return f"Reactivated subreddit: {subreddit_name}"
-        return f"{subreddit_name} is already beeing watched"
+        raise SubredditAlreadyActiveError(f"{subreddit_name} is already beeing watched")
 
     new_subreddit = WatchedSubreddit(name=subreddit_name, active=True)
     session.add(new_subreddit)
@@ -114,10 +147,10 @@ def remove_watched_reddit(session, subreddit_name: str):
     subreddit = session.querry(WatchedSubreddit).filter_by(name=subreddit_name).first()
 
     if not subreddit:
-        return f"Subreddit not found: {subreddit_name}"
+        raise SubredditNotFoundError(f"Subreddit not found: {subreddit_name}")
 
     if not subreddit.active:
-        return f"{subreddit_name} already inactive"
+        raise SubredditAlreadyInactiveError(f"{subreddit_name} already inactive")
     subreddit.active = False
     safe_commit(session)
     return f"{subreddit_name} deactivated"
@@ -157,7 +190,7 @@ def add_watched_user(session, username: str):
             existing.active = True
             safe_commit(session)
             return f"Reactivated existing user: {username}"
-        return f"User already being watched: {username}"
+        raise UserAlreadyActiveError(f"User already being watched: {username}")
 
     new_user = WatchedUser(username=username, active=True)
     session.add(new_user)
@@ -173,10 +206,10 @@ def remove_watched_user(session, username: str):
 
     user = session.query(WatchedUser).filter_by(username=username).first()
     if not user:
-        return f"User not found: {username}"
+        raise UserNotFoundError(f"User not found: {username}")
 
     if not user.active:
-        return f"User already inactive: {username}"
+        raise UserAlreadyInactiveError(f"User already inactive: {username}")
 
     user.active = False
     safe_commit(session)
@@ -206,10 +239,10 @@ def mute_user(session, username: str, mute_time: int):
 
     user = session.query(WatchedUser).filter_by(username=username).first()
     if not user:
-        return f"User not found: {username}"
+        raise UserNotFoundError(f"User not found: {username}")
 
     if is_muted(session, username):
-        return f"User already muted: {username}"
+        raise UserAlreadyMutedError(f"User already muted: {username}")
 
     user.muted_until = mute_time + time.time()
     safe_commit(session)
@@ -226,7 +259,7 @@ def unmute_user(session, username: str):
     user = session.query(WatchedUser).filter_by(username=username).first()
 
     if not user:
-        return f"User not found: {username}"
+        raise UserNotFoundError(f"User not found: {username}")
     user.muted_until = time.time() - 1
     safe_commit(session)
     return f"unmuted {username}"
@@ -234,13 +267,13 @@ def unmute_user(session, username: str):
 
 def rate_user(session, username: str, rating: int):
     """
-    Rate a User
+    Rate a User by a int amount. Negative ints are possible
     """
     username = username.strip()
 
     user = session.query(WatchedUser).filter_by(username=username).first()
     if not user:
-        return f"User not found: {username}"
+        raise UserNotFoundError(f"User not found: {username}")
 
     user.rating += rating
     safe_commit(session)
@@ -255,7 +288,7 @@ def get_rating(session, username: str):
 
     user = session.query(WatchedUser).filter_by(username=username).first()
     if not user:
-        return f"User not found: {username}"
+        raise UserNotFoundError(f"User not found: {username}")
 
     return user.rating
 

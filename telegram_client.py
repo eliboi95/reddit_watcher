@@ -7,6 +7,7 @@ from config import TELEGRAM_BOT_TOKEN
 from reddit_client import redditor_exists, subreddit_exists
 from db.models import (
     WatchedUser,
+    remove_watched_reddit,
     remove_watched_user,
     add_watched_user,
     get_pending_notifications,
@@ -20,6 +21,13 @@ from db.models import (
     get_watched_users_with_rating,
     safe_commit,
     SessionLocal,
+    UserNotFoundError,
+    UserAlreadyActiveError,
+    UserAlreadyInactiveError,
+    UserAlreadyMutedError,
+    SubredditAlreadyInactiveError,
+    SubredditNotFoundError,
+    SubredditAlreadyActiveError,
     init_db,
 )
 
@@ -32,8 +40,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     username = update.effective_user.username
 
     session = SessionLocal()
-    msg = add_telegram_user(session, chat_id, username)
-    session.close()
+    try:
+        msg = add_telegram_user(session, chat_id, username)
+    except Exception as e:
+        update.message.reply_text(f"⚠️ Unexpected Error: {e}")
+        return
+    finally:
+        session.close()
 
     await update.message.reply_text(f"👋 Hello {username or 'there'}!\n{msg}")
 
@@ -55,6 +68,9 @@ async def list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         user_ratings = get_watched_users_with_rating(session)
         users = [f"{user} {rating*'🚀'}" for user, rating in user_ratings]
+    except Exception as e:
+        update.message.reply_text(f"⚠️ Unexpected Error: {e}")
+        return
     finally:
         session.close()
 
@@ -72,6 +88,9 @@ async def listsubs(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         subreddits = get_watched_subreddits(session)
         subreddits = [sub for sub in subreddits]
+    except Exception as e:
+        update.message.reply_text(f"⚠️ Unexpected Error: {e}")
+        return
     finally:
         session.close()
 
@@ -100,6 +119,12 @@ async def add(update: Update, context: ContextTypes.DEFAULT_TYPE):
     session = SessionLocal()
     try:
         add_watched_user(session, redditor)
+    except UserAlreadyActiveError as e:
+        await update.message.reply_text(f"⚠️ {e}")
+        return
+    except Exception as e:
+        await update.message.reply_text(f"⚠️ Unexpected Error {e}")
+        return
     finally:
         session.close()
 
@@ -127,6 +152,12 @@ async def addsub(update: Update, context: ContextTypes.DEFAULT_TYPE):
     session = SessionLocal()
     try:
         add_watched_reddit(session, subreddit)
+    except SubredditAlreadyActiveError as e:
+        update.message.reply_text(f"⚠️ {e}")
+        return
+    except Exception as e:
+        update.message.reply_text(f"Unexpected Error: {e}")
+        return
     finally:
         session.close()
 
@@ -149,11 +180,53 @@ async def remove(update: Update, context: ContextTypes.DEFAULT_TYPE):
     session = SessionLocal()
     try:
         remove_watched_user(session, redditor)
+    except UserNotFoundError as e:
+        await update.message.reply_text(f"⚠️ {e}")
+        return
+
+    except UserAlreadyInactiveError as e:
+        await update.message.reply_text(f"⚠️ {e}")
+        return
+
+    except Exception as e:
+        await update.message.reply_text(f"⚠️ Unexpected error: {e}")
+        return
+
     finally:
         session.close()
 
     await context.bot.send_message(
         chat_id=update.effective_chat.id, text=f"removed {redditor}"
+    )
+
+
+async def rmsub(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Deactivate a subreddit
+    """
+    if len(context.args) != 1:
+        await update.message.reply_text("Usage /rmsub <subreddit>")
+        return
+
+    subreddit = context.args[0]
+    session = SessionLocal()
+
+    try:
+        remove_watched_reddit(session, subreddit)
+    except SubredditNotFoundError as e:
+        update.message.reply_text(f"⚠️ {e}")
+        return
+    except SubredditAlreadyInactiveError as e:
+        update.message.reply_text(f"⚠️ {e}")
+        return
+    except Exception as e:
+        update.message.reply_text(f"⚠️ Unexpected Error: {e}")
+        return
+    finally:
+        session.close()
+
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id, text=f"removed {subreddit}"
     )
 
 
@@ -182,6 +255,15 @@ async def mute(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         mute_user(session, redditor, mute_time * timescale)
+    except UserNotFoundError as e:
+        update.message.reply_text(f"⚠️ {e}")
+        return
+    except UserAlreadyMutedError as e:
+        update.message.reply_text(f"⚠️ {e}")
+        return
+    except Exception as e:
+        update.message.reply_text(f"⚠️ Unexpected Error: {e}")
+        return
     finally:
         session.close()
 
@@ -203,6 +285,11 @@ async def unmute(update: Update, context: ContextTypes.DEFAULT_TYPE):
     session = SessionLocal()
     try:
         unmute_user(session, redditor)
+    except UserNotFoundError as e:
+        update.message.reply_text(f"⚠️ {e}")
+        return
+    except Exception as e:
+        update.message.reply_text(f"⚠️ Unexpected Error: {e}")
     finally:
         session.close()
 
@@ -226,7 +313,12 @@ async def rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         rate_user(session, redditor, int(rating))
         rating = session.query(WatchedUser).filter_by(username=redditor).first().rating
-
+    except UserNotFoundError as e:
+        update.message.reply_text(f"⚠️{e}")
+        return
+    except Exception as e:
+        update.message.reply_text(f"Unexpected Error: {e}")
+        return
     finally:
         session.close()
 
