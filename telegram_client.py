@@ -30,6 +30,8 @@ from db.models import (
     init_db,
 )
 
+"""GENERAL COMMANDS"""
+
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
@@ -43,11 +45,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     username = update.effective_user.username
 
     session = SessionLocal()
+
     try:
         msg = add_telegram_user(session, chat_id, username)
+
     except Exception as e:
         await update.message.reply_text(f"⚠️ Unexpected Error: {e}")
         return
+
     finally:
         session.close()
 
@@ -65,6 +70,9 @@ async def help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+"""REDDITOR COMMANDS"""
+
+
 async def list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Telegram Bot Command to list all the watched redditors. /list
@@ -73,40 +81,22 @@ async def list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     assert update.effective_chat
 
     session = SessionLocal()
+
     try:
         user_ratings = get_watched_users_with_rating(session)
         users = [f"{user} {rating*'🚀'}" for user, rating in user_ratings]
+
     except Exception as e:
         await update.message.reply_text(f"⚠️ Unexpected Error: {e}")
         return
+
     finally:
         session.close()
 
     user_list = "\n".join(users) or "No users being watched"
+
     await context.bot.send_message(
         chat_id=update.effective_chat.id, text=f"List of redditors:\n{user_list}"
-    )
-
-
-async def listsubs(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Implement listsubs command for subreddits
-    """
-    assert update.message
-    assert update.effective_chat
-    session = SessionLocal()
-    try:
-        subreddits = get_watched_subreddits(session)
-        subreddits = [sub for sub in subreddits]
-    except Exception as e:
-        await update.message.reply_text(f"⚠️ Unexpected Error: {e}")
-        return
-    finally:
-        session.close()
-
-    subreddits_list = "\n".join(subreddits) or "No subreddits beeing watched"
-    await context.bot.send_message(
-        chat_id=update.effective_chat.id, text=f"List of subreddits:\n{subreddits_list}"
     )
 
 
@@ -122,6 +112,7 @@ async def add(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "🤪 Please use the commands correctly you dummy 🤪\n/add <redditor>\nCase sensitive btw...."
         )
         return
+
     redditor = context.args[0]
     exists = await asyncio.to_thread(redditor_exists, redditor)
 
@@ -130,54 +121,23 @@ async def add(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     session = SessionLocal()
+
     try:
         add_watched_user(session, redditor)
+
     except UserAlreadyActiveError as e:
         await update.message.reply_text(f"⚠️ {e}")
         return
+
     except Exception as e:
         await update.message.reply_text(f"⚠️ Unexpected Error {e}")
         return
+
     finally:
         session.close()
 
     await context.bot.send_message(
         chat_id=update.effective_chat.id, text=f"added {redditor}"
-    )
-
-
-async def addsub(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Telegram Bot Command to add a Subreddit to be watched. /addsub <subreddit>
-    """
-    assert update.message
-    assert update.effective_chat
-    if context.args == None or len(context.args) != 1:
-        await update.message.reply_text(
-            "🤪 Please use the commands correctly you dummy 🤪\n/add <subreddit>\nCase sensitive btw...."
-        )
-        return
-
-    subreddit = context.args[0]
-    exists = await asyncio.to_thread(subreddit_exists, subreddit)
-
-    if not exists:
-        await update.message.reply_text("Sorry that Subreddit does not exist")
-        return
-    session = SessionLocal()
-    try:
-        add_watched_reddit(session, subreddit)
-    except SubredditAlreadyActiveError as e:
-        await update.message.reply_text(f"⚠️ {e}")
-        return
-    except Exception as e:
-        await update.message.reply_text(f"Unexpected Error: {e}")
-        return
-    finally:
-        session.close()
-
-    await context.bot.send_message(
-        chat_id=update.effective_chat.id, text=f"added sub: {subreddit}"
     )
 
 
@@ -196,8 +156,10 @@ async def remove(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     redditor = context.args[0]
     session = SessionLocal()
+
     try:
         remove_watched_user(session, redditor)
+
     except UserNotFoundError as e:
         await update.message.reply_text(f"⚠️ {e}")
         return
@@ -218,39 +180,6 @@ async def remove(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-async def rmsub(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Deactivate a subreddit
-    """
-    assert update.message
-    assert update.effective_chat
-
-    if context.args == None or len(context.args) != 1:
-        await update.message.reply_text("Usage /rmsub <subreddit>")
-        return
-
-    subreddit = context.args[0]
-    session = SessionLocal()
-
-    try:
-        remove_watched_reddit(session, subreddit)
-    except SubredditNotFoundError as e:
-        await update.message.reply_text(f"⚠️ {e}")
-        return
-    except SubredditAlreadyInactiveError as e:
-        await update.message.reply_text(f"⚠️ {e}")
-        return
-    except Exception as e:
-        await update.message.reply_text(f"⚠️ Unexpected Error: {e}")
-        return
-    finally:
-        session.close()
-
-    await context.bot.send_message(
-        chat_id=update.effective_chat.id, text=f"removed {subreddit}"
-    )
-
-
 async def mute(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Telegram Bot Command to mute a reditor (logic in reddit client not implemented). /mute <redditor> <time> *h, d, y*
@@ -263,6 +192,7 @@ async def mute(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Okay i understand missusing this command. It's pretty dogshit💩\n/mute <redditor> <time> <unit>\nunits h: hours, d: days, y: years"
         )
         return
+
     redditor = context.args[0]
     mute_time = int(context.args[1])
     timescale = (
@@ -279,15 +209,19 @@ async def mute(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         mute_user(session, redditor, mute_time * timescale)
+
     except UserNotFoundError as e:
         await update.message.reply_text(f"⚠️ {e}")
         return
+
     except UserAlreadyMutedError as e:
         await update.message.reply_text(f"⚠️ {e}")
         return
+
     except Exception as e:
         await update.message.reply_text(f"⚠️ Unexpected Error: {e}")
         return
+
     finally:
         session.close()
 
@@ -308,15 +242,20 @@ async def unmute(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "This one is easy to use....🤷\n/unmute <redditor>"
         )
         return
+
     redditor = context.args[0]
     session = SessionLocal()
+
     try:
         unmute_user(session, redditor)
+
     except UserNotFoundError as e:
         await update.message.reply_text(f"⚠️ {e}")
         return
+
     except Exception as e:
         await update.message.reply_text(f"⚠️ Unexpected Error: {e}")
+
     finally:
         session.close()
 
@@ -337,18 +276,23 @@ async def rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "You can change the rating of specified redditor🤓\n/rate <redditor> <int>\nnegative or positiv int can be used"
         )
         return
+
     redditor = context.args[0]
     rating = context.args[1]
     session = SessionLocal()
+
     try:
         rate_user(session, redditor, int(rating))
         rating = get_rating(session, redditor)
+
     except UserNotFoundError as e:
         await update.message.reply_text(f"⚠️{e}")
         return
+
     except Exception as e:
         await update.message.reply_text(f"Unexpected Error: {e}")
         return
+
     finally:
         session.close()
 
@@ -358,12 +302,121 @@ async def rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+"""SUBREDDIT COMMANDS"""
+
+
+async def listsubs(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Implement listsubs command for subreddits
+    """
+    assert update.message
+    assert update.effective_chat
+
+    session = SessionLocal()
+
+    try:
+        subreddits = get_watched_subreddits(session)
+        subreddits = [sub for sub in subreddits]
+
+    except Exception as e:
+        await update.message.reply_text(f"⚠️ Unexpected Error: {e}")
+        return
+
+    finally:
+        session.close()
+
+    subreddits_list = "\n".join(subreddits) or "No subreddits beeing watched"
+
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id, text=f"List of subreddits:\n{subreddits_list}"
+    )
+
+
+async def addsub(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Telegram Bot Command to add a Subreddit to be watched. /addsub <subreddit>
+    """
+    assert update.message
+    assert update.effective_chat
+
+    if context.args == None or len(context.args) != 1:
+        await update.message.reply_text(
+            "🤪 Please use the commands correctly you dummy 🤪\n/add <subreddit>\nCase sensitive btw...."
+        )
+        return
+
+    subreddit = context.args[0]
+    exists = await asyncio.to_thread(subreddit_exists, subreddit)
+
+    if not exists:
+        await update.message.reply_text("Sorry that Subreddit does not exist")
+        return
+
+    session = SessionLocal()
+
+    try:
+        add_watched_reddit(session, subreddit)
+
+    except SubredditAlreadyActiveError as e:
+        await update.message.reply_text(f"⚠️ {e}")
+        return
+
+    except Exception as e:
+        await update.message.reply_text(f"Unexpected Error: {e}")
+        return
+
+    finally:
+        session.close()
+
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id, text=f"added sub: {subreddit}"
+    )
+
+
+async def rmsub(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Deactivate a subreddit
+    """
+    assert update.message
+    assert update.effective_chat
+
+    if context.args == None or len(context.args) != 1:
+        await update.message.reply_text("Usage /rmsub <subreddit>")
+        return
+
+    subreddit = context.args[0]
+    session = SessionLocal()
+
+    try:
+        remove_watched_reddit(session, subreddit)
+
+    except SubredditNotFoundError as e:
+        await update.message.reply_text(f"⚠️ {e}")
+        return
+
+    except SubredditAlreadyInactiveError as e:
+        await update.message.reply_text(f"⚠️ {e}")
+        return
+
+    except Exception as e:
+        await update.message.reply_text(f"⚠️ Unexpected Error: {e}")
+        return
+
+    finally:
+        session.close()
+
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id, text=f"removed {subreddit}"
+    )
+
+
 async def send_pending_notifications(bot):
     """
     Background task to check DB for new notifications and send them.
     """
     while True:
         session = SessionLocal()
+
         try:
             new_items = get_pending_notifications(session)
             chat_ids = get_active_telegram_users(session)
@@ -372,9 +425,11 @@ async def send_pending_notifications(bot):
 
                 try:
                     rating = get_rating(session, cast(str, note.author))
+
                 except UserNotFoundError as e:
                     print(f"⚠️{e}")
                     return
+
                 except Exception as e:
                     print(f"Unexpected Erorr: {e}")
                     return
@@ -382,17 +437,21 @@ async def send_pending_notifications(bot):
                 message = (
                     f"📢 New {note.type} by {note.author}{'🚀' * rating}\n{note.url}"
                 )
+
                 for chat_id in chat_ids:
                     try:
                         await bot.send_message(chat_id=chat_id, text=message)
+
                     except Exception as e:
                         print(f"Failed to send to {chat_id}: {e}")
 
                 note.delivered = True  # type: ignore[attr-defined]
 
             safe_commit(session)
+
         finally:
             session.close()
+
         await asyncio.sleep(5)
 
 

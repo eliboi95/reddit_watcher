@@ -38,8 +38,10 @@ def redditor_exists(name):
     try:
         reddit = get_reddit()
         reddit.redditor(name).id
+
     except NotFound:
         return False
+
     return True
 
 
@@ -50,8 +52,10 @@ def subreddit_exists(name):
     try:
         reddit = get_reddit()
         reddit.subreddit(name).id
+
     except Redirect:
         return False
+
     return True
 
 
@@ -74,6 +78,7 @@ def watch_loop():
             if time.time() - last_reload > 2:
                 if session:
                     session.close()
+
                 session = SessionLocal()
                 subs = get_watched_subreddits(session)
                 subnames = [str(s) for s in subs]
@@ -99,11 +104,14 @@ def watch_loop():
                 if comment is None:
                     time.sleep(1)
                     break
+
                 author = str(comment.author)
                 if author not in users:
                     continue
+
                 if is_muted(session, author):
                     continue
+
                 add_comment(session, comment)
                 print(f"added comment: {author}")
 
@@ -112,11 +120,15 @@ def watch_loop():
                 if submission is None:
                     time.sleep(1)
                     break
+
                 author = str(submission.author)
+
                 if author not in users:
                     continue
+
                 if is_muted(session, author):
                     continue
+
                 add_submission(session, submission)
 
             time.sleep(config.REDDIT_POLL_INTERVAL)
@@ -124,14 +136,16 @@ def watch_loop():
         except (RequestException, ResponseException, ServerError) as e:
             print(f"[Error] {e}. Sleeping 30s before retry...")
             time.sleep(30)
+
         except KeyboardInterrupt:
             print("🛑 Shutting down watcher.")
             break
+
         except Exception as e:
             print(f"[Unexpected Error] {e}")
             time.sleep(10)
+
         finally:
-            # optionally keep session open for reuse; otherwise ensure we close it
             pass
 
     if session:

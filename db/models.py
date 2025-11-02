@@ -2,9 +2,9 @@ from sqlalchemy import create_engine, Column, Integer, String, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.exc import OperationalError
+from config import DB_URL
 import time
 
-DB_URL = "sqlite:///reddit_watcher.db"
 
 Base = declarative_base()
 engine = create_engine(DB_URL, echo=False)
@@ -15,6 +15,7 @@ SessionLocal = sessionmaker(bind=engine)
 
 class WatchedSubreddit(Base):
     __tablename__ = "watched_subreddits"
+
     id = Column(Integer, primary_key=True)
     name = Column(String, unique=True)
     active = Column(Boolean, default=True)
@@ -22,6 +23,7 @@ class WatchedSubreddit(Base):
 
 class WatchedUser(Base):
     __tablename__ = "watched_users"
+
     id = Column(Integer, primary_key=True)
     username = Column(String, unique=True)
     active = Column(Boolean, default=True)
@@ -31,8 +33,9 @@ class WatchedUser(Base):
 
 class Notification(Base):
     __tablename__ = "notifications"
-    id = Column(String, primary_key=True)  # Reddit ID
-    type = Column(String)  # "comment" or "submission"
+
+    id = Column(String, primary_key=True)
+    type = Column(String)
     author = Column(String)
     content = Column(String)
     url = Column(String)
@@ -97,14 +100,18 @@ def safe_commit(session, retries: int = 3, delay: float = 0.5):
         try:
             session.commit()
             return
+
         except OperationalError as e:
             if "database is locked" in str(e).lower():
                 print(f"[DB] Database is locked, retrying ({attempt+1}/{retries})...")
                 time.sleep(delay)
+
             else:
                 session.rollback()
                 raise
+
     session.rollback()
+
     raise RuntimeError("[DB] Failed to commit after multiple retries.")
 
 
@@ -116,6 +123,7 @@ def get_watched_subreddits(session: Session) -> list[str]:
     Gets all watched subreddits
     """
     rows = session.query(WatchedSubreddit.name).all()
+
     return [row[0] for row in rows]
 
 
@@ -126,16 +134,19 @@ def add_watched_reddit(session, subreddit_name: str):
     subreddit_name.strip()
 
     existing = session.query(WatchedSubreddit).filter_by(name=subreddit_name).first()
+
     if existing:
         if not existing.active:
             existing.active = True
             safe_commit(session)
             return f"Reactivated subreddit: {subreddit_name}"
+
         raise SubredditAlreadyActiveError(f"{subreddit_name} is already beeing watched")
 
     new_subreddit = WatchedSubreddit(name=subreddit_name, active=True)
     session.add(new_subreddit)
     safe_commit(session)
+
     return f"Added new subreddit: {subreddit_name}"
 
 
@@ -152,8 +163,10 @@ def remove_watched_reddit(session, subreddit_name: str):
 
     if not subreddit.active:
         raise SubredditAlreadyInactiveError(f"{subreddit_name} already inactive")
+
     subreddit.active = False
     safe_commit(session)
+
     return f"{subreddit_name} deactivated"
 
 
@@ -191,11 +204,13 @@ def add_watched_user(session, username: str):
             existing.active = True
             safe_commit(session)
             return f"Reactivated existing user: {username}"
+
         raise UserAlreadyActiveError(f"User already being watched: {username}")
 
     new_user = WatchedUser(username=username, active=True)
     session.add(new_user)
     safe_commit(session)
+
     return f"Added new user: {username}"
 
 
@@ -214,6 +229,7 @@ def remove_watched_user(session, username: str):
 
     user.active = False
     safe_commit(session)
+
     return f"Deactivated user: {username}"
 
 
@@ -247,6 +263,7 @@ def mute_user(session, username: str, mute_time: int):
 
     user.muted_until = mute_time + time.time()
     safe_commit(session)
+
     return f"Muted user: {username}"
 
 
@@ -261,8 +278,10 @@ def unmute_user(session, username: str):
 
     if not user:
         raise UserNotFoundError(f"User not found: {username}")
+
     user.muted_until = time.time() - 1
     safe_commit(session)
+
     return f"unmuted {username}"
 
 
@@ -278,6 +297,7 @@ def rate_user(session, username: str, rating: int):
 
     user.rating += rating
     safe_commit(session)
+
     return f"Changed rating for: {username}"
 
 
@@ -368,6 +388,7 @@ def add_telegram_user(session, chat_id: int, username: str | None):
     """
     name = username or "Anonymous"
     existing = session.query(TelegramUser).filter_by(chat_id=chat_id).first()
+
     if existing:
         if not existing.active:
             existing.active = True
@@ -378,6 +399,7 @@ def add_telegram_user(session, chat_id: int, username: str | None):
     user = TelegramUser(chat_id=str(chat_id), username=name, active=True)
     session.add(user)
     safe_commit(session)
+
     return f"Added new Telegram user: {name}"
 
 
@@ -386,11 +408,14 @@ def remove_telegram_user(session, chat_id: str):
     Deactivate a Telegram user.
     """
     user = session.query(TelegramUser).filter_by(chat_id=chat_id).first()
+
     if not user:
         return f"Telegram user not found: {chat_id}"
+
     if not user.active:
         return f"Telegram user already inactive: {chat_id}"
 
     user.active = False
     safe_commit(session)
+
     return f"Deactivated Telegram user: {chat_id}"

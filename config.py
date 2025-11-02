@@ -17,3 +17,8 @@ TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 # Poll intervals
 REDDIT_POLL_INTERVAL = 5
 TELEGRAM_POLL_INTERVAL = 5
+
+"""
+Database URL
+"""
+DB_URL = "sqlite:///reddit_watcher.db"
