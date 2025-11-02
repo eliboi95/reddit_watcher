@@ -84,7 +84,7 @@ def watch_loop():
                 subnames = [str(s) for s in subs]
                 users = get_watched_users(session)
                 new_sub_str = "+".join(subnames) if subs else "test"
-
+                print(new_sub_str)
                 if new_sub_str != sub_str:
                     sub_str = new_sub_str
                     subreddit = reddit.subreddit(sub_str)
