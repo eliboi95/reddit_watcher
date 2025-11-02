@@ -1,6 +1,6 @@
 from sqlalchemy import create_engine, Column, Integer, String, Boolean
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, sessionmaker, Session
 from sqlalchemy.exc import OperationalError
 import time
 
@@ -111,11 +111,12 @@ def safe_commit(session, retries: int = 3, delay: float = 0.5):
 """SUBREDDITS"""
 
 
-def get_watched_subreddits(session):
+def get_watched_subreddits(session: Session) -> list[str]:
     """
     Gets all watched subreddits
     """
-    return [row.name for row in session.query(WatchedSubreddit).all()]
+    rows = session.query(WatchedSubreddit.name).all()
+    return [row[0] for row in rows]
 
 
 def add_watched_reddit(session, subreddit_name: str):
@@ -361,22 +362,23 @@ def get_active_telegram_users(session):
     return [u.chat_id for u in session.query(TelegramUser).filter_by(active=True).all()]
 
 
-def add_telegram_user(session, chat_id: str, username: str = None):
+def add_telegram_user(session, chat_id: int, username: str | None):
     """
     Add or reactivate a Telegram user in the database.
     """
+    name = username or "Anonymous"
     existing = session.query(TelegramUser).filter_by(chat_id=chat_id).first()
     if existing:
         if not existing.active:
             existing.active = True
             safe_commit(session)
-            return f"Reactivated Telegram user {username or chat_id}"
-        return f"Telegram user already active: {username or chat_id}"
+            return f"Reactivated Telegram user {name}"
+        return f"Telegram user already active: {name}"
 
-    user = TelegramUser(chat_id=str(chat_id), username=username, active=True)
+    user = TelegramUser(chat_id=str(chat_id), username=name, active=True)
     session.add(user)
     safe_commit(session)
-    return f"Added new Telegram user: {username or chat_id}"
+    return f"Added new Telegram user: {name}"
 
 
 def remove_telegram_user(session, chat_id: str):

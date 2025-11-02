@@ -1,12 +1,12 @@
 import asyncio
-from os import name
+from typing import cast
 from telegram import Update
-from telegram import Bot
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler
 from config import TELEGRAM_BOT_TOKEN
 from reddit_client import redditor_exists, subreddit_exists
 from db.models import (
     WatchedUser,
+    get_rating,
     remove_watched_reddit,
     remove_watched_user,
     add_watched_user,
@@ -36,6 +36,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Telegram Bot Command so the Chatter gets added to the active telegram users in DB
     """
+    assert update.message
+    assert update.effective_chat
+    assert update.effective_user
+
     chat_id = update.effective_chat.id
     username = update.effective_user.username
 
@@ -43,7 +47,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         msg = add_telegram_user(session, chat_id, username)
     except Exception as e:
-        update.message.reply_text(f"⚠️ Unexpected Error: {e}")
+        await update.message.reply_text(f"⚠️ Unexpected Error: {e}")
         return
     finally:
         session.close()
@@ -55,6 +59,8 @@ async def help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Lists the available commands
     """
+    assert update.message
+
     await update.message.reply_text(
         "/list\n/listsubs\n/add <redditor>\n/addsub <subreddit>\n/remove <redditor>\n/mute <redditor> <time> <unit>\n/unmute <redditor>\n/rate <redditor> <amount>"
     )
@@ -64,12 +70,15 @@ async def list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Telegram Bot Command to list all the watched redditors. /list
     """
+    assert update.message
+    assert update.effective_chat
+
     session = SessionLocal()
     try:
         user_ratings = get_watched_users_with_rating(session)
         users = [f"{user} {rating*'🚀'}" for user, rating in user_ratings]
     except Exception as e:
-        update.message.reply_text(f"⚠️ Unexpected Error: {e}")
+        await update.message.reply_text(f"⚠️ Unexpected Error: {e}")
         return
     finally:
         session.close()
@@ -84,12 +93,14 @@ async def listsubs(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Implement listsubs command for subreddits
     """
+    assert update.message
+    assert update.effective_chat
     session = SessionLocal()
     try:
         subreddits = get_watched_subreddits(session)
         subreddits = [sub for sub in subreddits]
     except Exception as e:
-        update.message.reply_text(f"⚠️ Unexpected Error: {e}")
+        await update.message.reply_text(f"⚠️ Unexpected Error: {e}")
         return
     finally:
         session.close()
@@ -104,7 +115,10 @@ async def add(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Telegram Bot Command to add a redditor to be watched. Rating system needs to be implemented. /add <redditor> *<rating>*
     """
-    if len(context.args) != 1:
+    assert update.message
+    assert update.effective_chat
+
+    if context.args == None or len(context.args) != 1:
         await update.message.reply_text(
             "🤪 Please use the commands correctly you dummy 🤪\n/add <redditor>\nCase sensitive btw...."
         )
@@ -137,7 +151,9 @@ async def addsub(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Telegram Bot Command to add a Subreddit to be watched. /addsub <subreddit>
     """
-    if len(context.args) != 1:
+    assert update.message
+    assert update.effective_chat
+    if context.args == None or len(context.args) != 1:
         await update.message.reply_text(
             "🤪 Please use the commands correctly you dummy 🤪\n/add <subreddit>\nCase sensitive btw...."
         )
@@ -153,10 +169,10 @@ async def addsub(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         add_watched_reddit(session, subreddit)
     except SubredditAlreadyActiveError as e:
-        update.message.reply_text(f"⚠️ {e}")
+        await update.message.reply_text(f"⚠️ {e}")
         return
     except Exception as e:
-        update.message.reply_text(f"Unexpected Error: {e}")
+        await update.message.reply_text(f"Unexpected Error: {e}")
         return
     finally:
         session.close()
@@ -170,7 +186,10 @@ async def remove(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Telegram Bot Command to deactivate a redditor. /remove <redditor>
     """
-    if len(context.args) != 1:
+    assert update.message
+    assert update.effective_chat
+
+    if context.args == None or len(context.args) != 1:
         await update.message.reply_text(
             "👺Just try to use the commands as intended please👺\n/remove <redditor>"
         )
@@ -204,7 +223,10 @@ async def rmsub(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Deactivate a subreddit
     """
-    if len(context.args) != 1:
+    assert update.message
+    assert update.effective_chat
+
+    if context.args == None or len(context.args) != 1:
         await update.message.reply_text("Usage /rmsub <subreddit>")
         return
 
@@ -214,13 +236,13 @@ async def rmsub(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         remove_watched_reddit(session, subreddit)
     except SubredditNotFoundError as e:
-        update.message.reply_text(f"⚠️ {e}")
+        await update.message.reply_text(f"⚠️ {e}")
         return
     except SubredditAlreadyInactiveError as e:
-        update.message.reply_text(f"⚠️ {e}")
+        await update.message.reply_text(f"⚠️ {e}")
         return
     except Exception as e:
-        update.message.reply_text(f"⚠️ Unexpected Error: {e}")
+        await update.message.reply_text(f"⚠️ Unexpected Error: {e}")
         return
     finally:
         session.close()
@@ -234,7 +256,10 @@ async def mute(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Telegram Bot Command to mute a reditor (logic in reddit client not implemented). /mute <redditor> <time> *h, d, y*
     """
-    if len(context.args) != 3:
+    assert update.message
+    assert update.effective_chat
+
+    if context.args == None or len(context.args) != 3:
         await update.message.reply_text(
             "Okay i understand missusing this command. It's pretty dogshit💩\n/mute <redditor> <time> <unit>\nunits h: hours, d: days, y: years"
         )
@@ -256,13 +281,13 @@ async def mute(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         mute_user(session, redditor, mute_time * timescale)
     except UserNotFoundError as e:
-        update.message.reply_text(f"⚠️ {e}")
+        await update.message.reply_text(f"⚠️ {e}")
         return
     except UserAlreadyMutedError as e:
-        update.message.reply_text(f"⚠️ {e}")
+        await update.message.reply_text(f"⚠️ {e}")
         return
     except Exception as e:
-        update.message.reply_text(f"⚠️ Unexpected Error: {e}")
+        await update.message.reply_text(f"⚠️ Unexpected Error: {e}")
         return
     finally:
         session.close()
@@ -276,7 +301,10 @@ async def unmute(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Unmute a Redditor
     """
-    if len(context.args) != 1:
+    assert update.message
+    assert update.effective_chat
+
+    if context.args == None or len(context.args) != 1:
         await update.message.reply_text(
             "This one is easy to use....🤷\n/unmute <redditor>"
         )
@@ -286,10 +314,10 @@ async def unmute(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         unmute_user(session, redditor)
     except UserNotFoundError as e:
-        update.message.reply_text(f"⚠️ {e}")
+        await update.message.reply_text(f"⚠️ {e}")
         return
     except Exception as e:
-        update.message.reply_text(f"⚠️ Unexpected Error: {e}")
+        await update.message.reply_text(f"⚠️ Unexpected Error: {e}")
     finally:
         session.close()
 
@@ -302,7 +330,10 @@ async def rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Telegram Bot Command to rate a redditor. Logic not implemented. /rate <redditor> <int>
     """
-    if len(context.args) != 2:
+    assert update.message
+    assert update.effective_chat
+
+    if context.args == None or len(context.args) != 2:
         await update.message.reply_text(
             "You can change the rating of specified redditor🤓\n/rate <redditor> <int>\nnegative or positiv int can be used"
         )
@@ -312,12 +343,12 @@ async def rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     session = SessionLocal()
     try:
         rate_user(session, redditor, int(rating))
-        rating = session.query(WatchedUser).filter_by(username=redditor).first().rating
+        rating = get_rating(session, redditor)
     except UserNotFoundError as e:
-        update.message.reply_text(f"⚠️{e}")
+        await update.message.reply_text(f"⚠️{e}")
         return
     except Exception as e:
-        update.message.reply_text(f"Unexpected Error: {e}")
+        await update.message.reply_text(f"Unexpected Error: {e}")
         return
     finally:
         session.close()
@@ -339,10 +370,16 @@ async def send_pending_notifications(bot):
             chat_ids = get_active_telegram_users(session)
 
             for note in new_items:
-                author_user = (
-                    session.query(WatchedUser).filter_by(username=note.author).first()
-                )
-                rating = author_user.rating
+
+                try:
+                    rating = get_rating(session, cast(str, note.author))
+                except UserNotFoundError as e:
+                    print(f"⚠️{e}")
+                    return
+                except Exception as e:
+                    print(f"Unexpected Erorr: {e}")
+                    return
+
                 message = (
                     f"📢 New {note.type} by {note.author}{'🚀' * rating}\n{note.url}"
                 )
@@ -352,7 +389,7 @@ async def send_pending_notifications(bot):
                     except Exception as e:
                         print(f"Failed to send to {chat_id}: {e}")
 
-                note.delivered = True
+                note.delivered = True  # type: ignore[attr-defined]
 
             safe_commit(session)
         finally:
@@ -361,6 +398,8 @@ async def send_pending_notifications(bot):
 
 
 if __name__ == "__main__":
+
+    assert TELEGRAM_BOT_TOKEN
 
     init_db()
     app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
@@ -375,6 +414,7 @@ if __name__ == "__main__":
     rate_handler = CommandHandler("rate", rate)
     addsub_handler = CommandHandler("addsub", addsub)
     listsubs_handler = CommandHandler("listsubs", listsubs)
+    rmsub_handler = CommandHandler("rmsub", rmsub)
 
     app.add_handlers(
         [
@@ -388,6 +428,7 @@ if __name__ == "__main__":
             remove_handler,
             addsub_handler,
             listsubs_handler,
+            rmsub_handler,
         ]
     )
 
