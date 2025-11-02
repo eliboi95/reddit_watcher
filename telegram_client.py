@@ -428,11 +428,11 @@ async def send_pending_notifications(bot):
 
                 except UserNotFoundError as e:
                     print(f"⚠️{e}")
-                    return
+                    continue
 
                 except Exception as e:
                     print(f"Unexpected Erorr: {e}")
-                    return
+                    continue
 
                 message = (
                     f"📢 New {note.type} by {note.author}{'🚀' * rating}\n{note.url}"

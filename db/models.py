@@ -131,43 +131,43 @@ def add_watched_reddit(session, subreddit_name: str):
     """
     Adds a subreddit to the watchlist
     """
-    subreddit_name.strip()
+    name = subreddit_name.strip()
 
-    existing = session.query(WatchedSubreddit).filter_by(name=subreddit_name).first()
+    existing = session.query(WatchedSubreddit).filter_by(name=name).first()
 
     if existing:
         if not existing.active:
             existing.active = True
             safe_commit(session)
-            return f"Reactivated subreddit: {subreddit_name}"
+            return f"Reactivated subreddit: {name}"
 
-        raise SubredditAlreadyActiveError(f"{subreddit_name} is already beeing watched")
+        raise SubredditAlreadyActiveError(f"{name} is already beeing watched")
 
-    new_subreddit = WatchedSubreddit(name=subreddit_name, active=True)
+    new_subreddit = WatchedSubreddit(name=name, active=True)
     session.add(new_subreddit)
     safe_commit(session)
 
-    return f"Added new subreddit: {subreddit_name}"
+    return f"Added new subreddit: {name}"
 
 
 def remove_watched_reddit(session, subreddit_name: str):
     """
     Deactivates a Subreddit so it doesnt get watched anymore
     """
-    subreddit_name.strip()
+    name = subreddit_name.strip()
 
-    subreddit = session.querry(WatchedSubreddit).filter_by(name=subreddit_name).first()
+    subreddit = session.query(WatchedSubreddit).filter_by(name=name).first()
 
     if not subreddit:
-        raise SubredditNotFoundError(f"Subreddit not found: {subreddit_name}")
+        raise SubredditNotFoundError(f"Subreddit not found: {name}")
 
     if not subreddit.active:
-        raise SubredditAlreadyInactiveError(f"{subreddit_name} already inactive")
+        raise SubredditAlreadyInactiveError(f"{name} already inactive")
 
     subreddit.active = False
     safe_commit(session)
 
-    return f"{subreddit_name} deactivated"
+    return f"{name} deactivated"
 
 
 """REDDITORS"""
