@@ -122,7 +122,7 @@ def get_watched_subreddits(session: Session) -> list[str]:
     """
     Gets all watched subreddits
     """
-    rows = session.query(WatchedSubreddit.name).all()
+    rows = session.query(WatchedSubreddit.name).filter_by(active=True).all()
 
     return [row[0] for row in rows]
 
