@@ -3,7 +3,8 @@ import signal
 import sys
 import time
 
-
+print("Python executable:", sys.executable, flush=True)
+print("sys.path", sys.path, flush=True)
 def start_subprocess(cmd):
     try:
         return subprocess.Popen(cmd)
@@ -13,9 +14,9 @@ def start_subprocess(cmd):
 
 
 """Start both scripts as subprocesses"""
-p1 = start_subprocess(["python3", "telegram_client.py"])
+p1 = start_subprocess([sys.executable, "telegram_client.py"])
 time.sleep(2)
-p2 = start_subprocess(["python3", "reddit_client.py"])
+p2 = start_subprocess([sys.executable, "reddit_client.py"])
 
 
 def handle_exit(sig, frame):
