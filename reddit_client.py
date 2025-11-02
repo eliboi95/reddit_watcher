@@ -1,5 +1,4 @@
 import praw
-from sqlalchemy import false
 import config
 import time
 from typing import Generator, cast

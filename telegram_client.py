@@ -5,7 +5,6 @@ from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler
 from config import TELEGRAM_BOT_TOKEN
 from reddit_client import redditor_exists, subreddit_exists
 from db.models import (
-    WatchedUser,
     get_rating,
     remove_watched_reddit,
     remove_watched_user,
