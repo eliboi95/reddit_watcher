@@ -42,6 +42,12 @@ def redditor_exists(name: str) -> bool:
     except NotFound:
         return False
 
+    except Redirect:
+        return False
+
+    except AttributeError:
+        return False
+
     return True
 
 
@@ -53,7 +59,13 @@ def subreddit_exists(name: str) -> bool:
         reddit = get_reddit()
         reddit.subreddit(name).id
 
+    except NotFound:
+        return False
+
     except Redirect:
+        return False
+
+    except AttributeError:
         return False
 
     return True
