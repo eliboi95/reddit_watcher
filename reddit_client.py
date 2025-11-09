@@ -20,7 +20,7 @@ from db.models import (
 )
 
 
-def get_reddit():
+def get_reddit() -> praw.Reddit:
     """
     Create and return a Reddit client.
     """
@@ -31,7 +31,7 @@ def get_reddit():
     )
 
 
-def redditor_exists(name):
+def redditor_exists(name: str) -> bool:
     """
     Function to check if redditor exists
     """
@@ -45,7 +45,7 @@ def redditor_exists(name):
     return True
 
 
-def subreddit_exists(name):
+def subreddit_exists(name: str) -> bool:
     """
     Function to check if subreddit exists
     """
@@ -100,6 +100,8 @@ def watch_loop():
                 last_reload = time.time()
 
             # process comments
+            assert session
+
             for comment in comment_stream:
                 if comment is None:
                     time.sleep(1)

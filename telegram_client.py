@@ -33,7 +33,7 @@ from db.models import (
 """GENERAL COMMANDS"""
 
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Telegram Bot Command so the Chatter gets added to the active telegram users in DB
     """
@@ -59,7 +59,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"👋 Hello {username or 'there'}!\n{msg}")
 
 
-async def help(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Lists the available commands
     """
@@ -73,7 +73,7 @@ async def help(update: Update, context: ContextTypes.DEFAULT_TYPE):
 """REDDITOR COMMANDS"""
 
 
-async def list(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def list(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Telegram Bot Command to list all the watched redditors. /list
     """
@@ -100,7 +100,7 @@ async def list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-async def add(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def add(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Telegram Bot Command to add a redditor to be watched. Rating system needs to be implemented. /add <redditor> *<rating>*
     """
@@ -141,7 +141,7 @@ async def add(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-async def remove(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def remove(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Telegram Bot Command to deactivate a redditor. /remove <redditor>
     """
@@ -180,7 +180,7 @@ async def remove(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-async def mute(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def mute(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Telegram Bot Command to mute a reditor (logic in reddit client not implemented). /mute <redditor> <time> *h, d, y*
     """
@@ -230,7 +230,7 @@ async def mute(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-async def unmute(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def unmute(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Unmute a Redditor
     """
@@ -264,7 +264,7 @@ async def unmute(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-async def rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def rate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Telegram Bot Command to rate a redditor. Logic not implemented. /rate <redditor> <int>
     """
@@ -305,7 +305,7 @@ async def rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
 """SUBREDDIT COMMANDS"""
 
 
-async def listsubs(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def listsubs(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Implement listsubs command for subreddits
     """
@@ -332,7 +332,7 @@ async def listsubs(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-async def addsub(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def addsub(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Telegram Bot Command to add a Subreddit to be watched. /addsub <subreddit>
     """
@@ -373,7 +373,7 @@ async def addsub(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-async def rmsub(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def rmsub(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Deactivate a subreddit
     """
@@ -410,7 +410,7 @@ async def rmsub(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-async def send_pending_notifications(bot):
+async def send_pending_notifications(bot) -> None:
     """
     Background task to check DB for new notifications and send them.
     """

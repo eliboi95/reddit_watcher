@@ -2,12 +2,14 @@ import subprocess
 import signal
 import sys
 import time
+from typing import Optional
+import types
 
 print("Python executable:", sys.executable, flush=True)
 print("sys.path", sys.path, flush=True)
 
 
-def start_subprocess(cmd):
+def start_subprocess(cmd: list[str]) -> None | subprocess.Popen:
     try:
         return subprocess.Popen(cmd)
     except Exception as e:
@@ -21,7 +23,7 @@ time.sleep(2)
 p2 = start_subprocess([sys.executable, "reddit_client.py"])
 
 
-def handle_exit(sig, frame):
+def handle_exit(sig: int, frame: Optional[types.FrameType]) -> None:
     print("\nStopping both scripts...")
     for p in (p1, p2):
         if p and p.poll() is None:
@@ -53,4 +55,4 @@ try:
     while True:
         time.sleep(1)
 except KeyboardInterrupt:
-    handle_exit(None, None)
+    handle_exit(signal.SIGINT, None)

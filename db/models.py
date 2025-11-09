@@ -1,55 +1,62 @@
-from sqlalchemy import create_engine, Column, Integer, String, Boolean
+from prawcore import session
+from sqlalchemy import create_engine, Column, Integer, String, Boolean, Float
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import DeclarativeBase, sessionmaker, Session, Mapped, mapped_column
 from sqlalchemy.exc import OperationalError
 from config import DB_URL
 import time
+from praw.models import Comment, Submission
 
 
-Base = declarative_base()
 engine = create_engine(DB_URL, echo=False)
 SessionLocal = sessionmaker(bind=engine)
 
 """MODELS"""
 
 
+class Base(DeclarativeBase):
+    """Base Model"""
+
+    pass
+
+
 class WatchedSubreddit(Base):
     __tablename__ = "watched_subreddits"
 
-    id = Column(Integer, primary_key=True)
-    name = Column(String, unique=True)
-    active = Column(Boolean, default=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String, unique=True)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
 class WatchedUser(Base):
     __tablename__ = "watched_users"
 
-    id = Column(Integer, primary_key=True)
-    username = Column(String, unique=True)
-    active = Column(Boolean, default=True)
-    muted_until = Column(Integer, default=0)
-    rating = Column(Integer, default=5)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    username: Mapped[str] = mapped_column(String, unique=True)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    muted_until: Mapped[float] = mapped_column(Float, default=0)
+    rating: Mapped[int] = mapped_column(Integer, default=5)
 
 
 class Notification(Base):
     __tablename__ = "notifications"
 
-    id = Column(String, primary_key=True)
-    type = Column(String)
-    author = Column(String)
-    content = Column(String)
-    url = Column(String)
-    created_utc = Column(Integer)
-    delivered = Column(Boolean, default=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    type: Mapped[str] = mapped_column(String)
+    author: Mapped[str] = mapped_column(String)
+    content: Mapped[str] = mapped_column(String)
+    url: Mapped[str] = mapped_column(String)
+    created_utc: Mapped[int] = mapped_column(Integer)
+    delivered: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class TelegramUser(Base):
     __tablename__ = "telegram_users"
 
-    id = Column(Integer, primary_key=True)
-    chat_id = Column(String, unique=True)
-    username = Column(String, nullable=True)
-    active = Column(Boolean, default=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    chat_id: Mapped[str] = mapped_column(String, unique=True)
+    username: Mapped[str] = mapped_column(String, nullable=True)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
 """
@@ -92,7 +99,7 @@ def init_db():
     Base.metadata.create_all(engine)
 
 
-def safe_commit(session, retries: int = 3, delay: float = 0.5):
+def safe_commit(session: Session, retries: int = 3, delay: float = 0.5) -> None:
     """
     Commit the current session with retries in case of 'database is locked' errors.
     """
@@ -127,7 +134,7 @@ def get_watched_subreddits(session: Session) -> list[str]:
     return [row[0] for row in rows]
 
 
-def add_watched_reddit(session, subreddit_name: str):
+def add_watched_reddit(session: Session, subreddit_name: str) -> str:
     """
     Adds a subreddit to the watchlist
     """
@@ -150,7 +157,7 @@ def add_watched_reddit(session, subreddit_name: str):
     return f"Added new subreddit: {name}"
 
 
-def remove_watched_reddit(session, subreddit_name: str):
+def remove_watched_reddit(session: Session, subreddit_name: str) -> str:
     """
     Deactivates a Subreddit so it doesnt get watched anymore
     """
@@ -173,7 +180,7 @@ def remove_watched_reddit(session, subreddit_name: str):
 """REDDITORS"""
 
 
-def get_watched_users(session):
+def get_watched_users(session: Session) -> list[str]:
     """
     Gets all the redditors on the watchlist
     """
@@ -182,7 +189,7 @@ def get_watched_users(session):
     ]
 
 
-def get_watched_users_with_rating(session):
+def get_watched_users_with_rating(session: Session) -> list[tuple[str, int]]:
     """
     Gets all the redditors on the watchlist including the rating
     """
@@ -192,7 +199,7 @@ def get_watched_users_with_rating(session):
     ]
 
 
-def add_watched_user(session, username: str):
+def add_watched_user(session: Session, username: str) -> str:
     """
     Add a redditor to the watched_users table if not already present.
     """
@@ -214,7 +221,7 @@ def add_watched_user(session, username: str):
     return f"Added new user: {username}"
 
 
-def remove_watched_user(session, username: str):
+def remove_watched_user(session: Session, username: str) -> str:
     """
     Deactivates a redditor the watched_users table.
     """
@@ -233,7 +240,7 @@ def remove_watched_user(session, username: str):
     return f"Deactivated user: {username}"
 
 
-def is_muted(session, username):
+def is_muted(session: Session, username: str) -> bool:
     """
     Implement is_muted Check
     """
@@ -248,7 +255,7 @@ def is_muted(session, username):
         return False
 
 
-def mute_user(session, username: str, mute_time: int):
+def mute_user(session: Session, username: str, mute_time: int) -> str:
     """
     Mute a user for a specified time
     """
@@ -267,7 +274,7 @@ def mute_user(session, username: str, mute_time: int):
     return f"Muted user: {username}"
 
 
-def unmute_user(session, username: str):
+def unmute_user(session: Session, username: str) -> str:
     """
     Unmute User
     """
@@ -285,7 +292,7 @@ def unmute_user(session, username: str):
     return f"unmuted {username}"
 
 
-def rate_user(session, username: str, rating: int):
+def rate_user(session: Session, username: str, rating: int) -> str:
     """
     Rate a User by a int amount. Negative ints are possible
     """
@@ -301,7 +308,7 @@ def rate_user(session, username: str, rating: int):
     return f"Changed rating for: {username}"
 
 
-def get_rating(session, username: str):
+def get_rating(session: Session, username: str) -> int:
     """
     Get the rating of a redditor
     """
@@ -317,7 +324,7 @@ def get_rating(session, username: str):
 """SUBMISSIONS"""
 
 
-def add_comment(session, comment):
+def add_comment(session: Session, comment: Comment) -> str:
     """
     Adds a comment to the notifications table
     """
@@ -335,7 +342,7 @@ def add_comment(session, comment):
     return "comment added"
 
 
-def add_submission(session, submission):
+def add_submission(session: Session, submission: Submission) -> str:
     """
     Adds a submission to the notifications table
     """
@@ -353,7 +360,7 @@ def add_submission(session, submission):
     return "submission added"
 
 
-def get_pending_notifications(session):
+def get_pending_notifications(session: Session) -> list[Notification]:
     """
     Return all undelivered notifications
     """
@@ -365,7 +372,7 @@ def get_pending_notifications(session):
     )
 
 
-def get_notifications(session):
+def get_notifications(session: Session) -> list[list[str]]:
     """
     Return all notifications
     """
@@ -375,14 +382,14 @@ def get_notifications(session):
 """TELEGRAM USERS"""
 
 
-def get_active_telegram_users(session):
+def get_active_telegram_users(session: Session) -> list[str]:
     """
     Get all active Telegram user chat IDs. They need to have written /start in the botchat to be listed
     """
     return [u.chat_id for u in session.query(TelegramUser).filter_by(active=True).all()]
 
 
-def add_telegram_user(session, chat_id: int, username: str | None):
+def add_telegram_user(session: Session, chat_id: int, username: str | None) -> str:
     """
     Add or reactivate a Telegram user in the database.
     """
@@ -403,7 +410,7 @@ def add_telegram_user(session, chat_id: int, username: str | None):
     return f"Added new Telegram user: {name}"
 
 
-def remove_telegram_user(session, chat_id: str):
+def remove_telegram_user(session: Session, chat_id: str) -> str:
     """
     Deactivate a Telegram user.
     """
