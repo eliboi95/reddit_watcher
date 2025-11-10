@@ -1,4 +1,4 @@
-from ..config.config import DB_URL
+from config.config import DB_URL
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from .models import Base
