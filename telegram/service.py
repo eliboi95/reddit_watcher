@@ -3,17 +3,10 @@ from db.models import Notification
 from reddit.reddit_client import redditor_exists, subreddit_exists
 from db.exceptions import (
     RedditorDoesNotExistError,
-    RedditorNotFoundInDBError,
-    RedditorAlreadyActiveError,
-    RedditorAlreadyInactiveError,
-    RedditorAlreadyMutedError,
-    SubredditAlreadyActiveError,
-    SubredditAlreadyInactiveError,
-    SubredditNotFoundError,
+    SubredditDoesNotExistError,
 )
-from db.session import SessionLocal, init_db
+from db.session import SessionLocal
 from db.crud import (
-    get_rating,
     remove_watched_reddit,
     remove_watched_redditor,
     add_watched_redditor,
@@ -26,7 +19,6 @@ from db.crud import (
     unset_redditor_mute_timer,
     set_redditor_rating,
     get_watched_users_with_rating,
-    safe_commit,
 )
 
 """GENERAL COMMANDS"""
@@ -140,8 +132,8 @@ def list_subreddits() -> str:
 def add_subreddit_to_db(subreddit_name: str) -> None:
     exists = subreddit_exists(subreddit_name)
 
-    if exists:
-        return
+    if not exists:
+        raise SubredditDoesNotExistError
 
     session = SessionLocal()
 
