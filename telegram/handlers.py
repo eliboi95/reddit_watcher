@@ -5,10 +5,10 @@ from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler
 from config.config import TELEGRAM_BOT_TOKEN
 from reddit.reddit_client import redditor_exists, subreddit_exists
 from db.exceptions import (
-    UserNotFoundError,
-    UserAlreadyActiveError,
-    UserAlreadyInactiveError,
-    UserAlreadyMutedError,
+    RedditorNotFoundInDBError,
+    RedditorAlreadyActiveError,
+    RedditorAlreadyInactiveError,
+    RedditorAlreadyMutedError,
     SubredditAlreadyActiveError,
     SubredditAlreadyInactiveError,
     SubredditNotFoundError,
@@ -17,16 +17,16 @@ from db.session import SessionLocal, init_db
 from db.crud import (
     get_rating,
     remove_watched_reddit,
-    remove_watched_user,
-    add_watched_user,
+    remove_watched_redditor,
+    add_watched_redditor,
     get_pending_notifications,
     add_telegram_user,
-    get_active_telegram_users,
-    add_watched_reddit,
+    get_active_telegram_users_chat_ids,
+    add_watched_subreddit,
     get_watched_subreddits,
-    mute_user,
-    unmute_user,
-    rate_user,
+    set_redditor_mute_timer,
+    unset_redditor_mute_timer,
+    set_redditor_rating,
     get_watched_users_with_rating,
     safe_commit,
 )

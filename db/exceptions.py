@@ -3,19 +3,27 @@ DEFINING CUSTOM EXCEPTIONS
 """
 
 
-class UserNotFoundError(Exception):
+class RedditorDoesNotExistError(Exception):
     pass
 
 
-class UserAlreadyInactiveError(Exception):
+class RedditorNotFoundInDBError(Exception):
     pass
 
 
-class UserAlreadyActiveError(Exception):
+class RedditorAlreadyInactiveError(Exception):
     pass
 
 
-class UserAlreadyMutedError(Exception):
+class RedditorAlreadyActiveError(Exception):
+    pass
+
+
+class RedditorAlreadyMutedError(Exception):
+    pass
+
+
+class SubredditDoesNotExistError(Exception):
     pass
 
 

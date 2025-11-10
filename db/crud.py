@@ -1,13 +1,14 @@
 import time
-from .models import WatchedSubreddit, WatchedUser, TelegramUser, Notification
+from .models import WatchedSubreddit, WatchedRedditor, TelegramUser, Notification
 from praw.models import Comment, Submission
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 from .exceptions import (
-    UserAlreadyActiveError,
-    UserNotFoundError,
-    UserAlreadyMutedError,
-    UserAlreadyInactiveError,
+    RedditorDoesNotExistError,
+    RedditorAlreadyActiveError,
+    RedditorNotFoundInDBError,
+    RedditorAlreadyMutedError,
+    RedditorAlreadyInactiveError,
     SubredditAlreadyInactiveError,
     SubredditAlreadyActiveError,
     SubredditNotFoundError,
@@ -49,7 +50,7 @@ def get_watched_subreddits(session: Session) -> list[str]:
     return [row[0] for row in rows]
 
 
-def add_watched_reddit(session: Session, subreddit_name: str) -> str:
+def add_watched_subreddit(session: Session, subreddit_name: str) -> str:
     """
     Adds a subreddit to the watchlist
     """
@@ -100,7 +101,8 @@ def get_watched_users(session: Session) -> list[str]:
     Gets all the redditors on the watchlist
     """
     return [
-        row.username for row in session.query(WatchedUser).filter_by(active=True).all()
+        row.username
+        for row in session.query(WatchedRedditor).filter_by(active=True).all()
     ]
 
 
@@ -110,49 +112,49 @@ def get_watched_users_with_rating(session: Session) -> list[tuple[str, int]]:
     """
     return [
         (row.username, row.rating)
-        for row in session.query(WatchedUser).filter_by(active=True).all()
+        for row in session.query(WatchedRedditor).filter_by(active=True).all()
     ]
 
 
-def add_watched_user(session: Session, username: str) -> str:
+def add_watched_redditor(session: Session, username: str) -> None:
     """
     Add a redditor to the watched_users table if not already present.
     """
     username = username.strip()
 
-    existing = session.query(WatchedUser).filter_by(username=username).first()
+    existing = session.query(WatchedRedditor).filter_by(username=username).first()
     if existing:
         if not existing.active:
             existing.active = True
             safe_commit(session)
-            return f"Reactivated existing user: {username}"
+            raise RedditorDoesNotExistError(f"User does not exist on Reddit {username}")
 
-        raise UserAlreadyActiveError(f"User already being watched: {username}")
+        raise RedditorAlreadyActiveError(f"User already being watched: {username}")
 
-    new_user = WatchedUser(username=username, active=True)
+    new_user = WatchedRedditor(username=username, active=True)
     session.add(new_user)
     safe_commit(session)
 
-    return f"Added new user: {username}"
+    return
 
 
-def remove_watched_user(session: Session, username: str) -> str:
+def remove_watched_redditor(session: Session, username: str) -> None:
     """
     Deactivates a redditor the watched_users table.
     """
     username = username.strip()
 
-    user = session.query(WatchedUser).filter_by(username=username).first()
+    user = session.query(WatchedRedditor).filter_by(username=username).first()
     if not user:
-        raise UserNotFoundError(f"User not found: {username}")
+        raise RedditorNotFoundInDBError(f"User not found: {username}")
 
     if not user.active:
-        raise UserAlreadyInactiveError(f"User already inactive: {username}")
+        raise RedditorAlreadyInactiveError(f"User already inactive: {username}")
 
     user.active = False
     safe_commit(session)
 
-    return f"Deactivated user: {username}"
+    return
 
 
 def is_muted(session: Session, username: str) -> bool:
@@ -160,7 +162,7 @@ def is_muted(session: Session, username: str) -> bool:
     Implement is_muted Check
     """
     username = username.strip()
-    user = session.query(WatchedUser).filter_by(username=username).first()
+    user = session.query(WatchedRedditor).filter_by(username=username).first()
 
     if not user:
         return True
@@ -170,18 +172,18 @@ def is_muted(session: Session, username: str) -> bool:
         return False
 
 
-def mute_user(session: Session, username: str, mute_time: int) -> str:
+def set_redditor_mute_timer(session: Session, username: str, mute_time: float) -> str:
     """
     Mute a user for a specified time
     """
     username = username.strip()
 
-    user = session.query(WatchedUser).filter_by(username=username).first()
+    user = session.query(WatchedRedditor).filter_by(username=username).first()
     if not user:
-        raise UserNotFoundError(f"User not found: {username}")
+        raise RedditorNotFoundInDBError(f"User not found: {username}")
 
     if is_muted(session, username):
-        raise UserAlreadyMutedError(f"User already muted: {username}")
+        raise RedditorAlreadyMutedError(f"User already muted: {username}")
 
     user.muted_until = mute_time + time.time()
     safe_commit(session)
@@ -189,17 +191,17 @@ def mute_user(session: Session, username: str, mute_time: int) -> str:
     return f"Muted user: {username}"
 
 
-def unmute_user(session: Session, username: str) -> str:
+def unset_redditor_mute_timer(session: Session, username: str) -> str:
     """
     Unmute User
     """
 
     username = username.strip()
 
-    user = session.query(WatchedUser).filter_by(username=username).first()
+    user = session.query(WatchedRedditor).filter_by(username=username).first()
 
     if not user:
-        raise UserNotFoundError(f"User not found: {username}")
+        raise RedditorNotFoundInDBError(f"User not found: {username}")
 
     user.muted_until = time.time() - 1
     safe_commit(session)
@@ -207,15 +209,15 @@ def unmute_user(session: Session, username: str) -> str:
     return f"unmuted {username}"
 
 
-def rate_user(session: Session, username: str, rating: int) -> str:
+def set_redditor_rating(session: Session, username: str, rating: int) -> str:
     """
     Rate a User by a int amount. Negative ints are possible
     """
     username = username.strip()
 
-    user = session.query(WatchedUser).filter_by(username=username).first()
+    user = session.query(WatchedRedditor).filter_by(username=username).first()
     if not user:
-        raise UserNotFoundError(f"User not found: {username}")
+        raise RedditorNotFoundInDBError(f"User not found: {username}")
 
     user.rating += rating
     safe_commit(session)
@@ -229,9 +231,9 @@ def get_rating(session: Session, username: str) -> int:
     """
     username = username.strip()
 
-    user = session.query(WatchedUser).filter_by(username=username).first()
+    user = session.query(WatchedRedditor).filter_by(username=username).first()
     if not user:
-        raise UserNotFoundError(f"User not found: {username}")
+        raise RedditorNotFoundInDBError(f"User not found: {username}")
 
     return user.rating
 
@@ -297,7 +299,7 @@ def get_notifications(session: Session) -> list[list[str]]:
 """TELEGRAM USERS"""
 
 
-def get_active_telegram_users(session: Session) -> list[str]:
+def get_active_telegram_users_chat_ids(session: Session) -> list[str]:
     """
     Get all active Telegram user chat IDs. They need to have written /start in the botchat to be listed
     """

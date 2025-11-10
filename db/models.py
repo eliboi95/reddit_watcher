@@ -19,7 +19,7 @@ class WatchedSubreddit(Base):
     active: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
-class WatchedUser(Base):
+class WatchedRedditor(Base):
     __tablename__ = "watched_users"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

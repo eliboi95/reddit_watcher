@@ -5,10 +5,10 @@ from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler
 from config.config import TELEGRAM_BOT_TOKEN
 from reddit.reddit_client import redditor_exists, subreddit_exists
 from db.exceptions import (
-    UserNotFoundError,
-    UserAlreadyActiveError,
-    UserAlreadyInactiveError,
-    UserAlreadyMutedError,
+    RedditorNotFoundInDBError,
+    RedditorAlreadyActiveError,
+    RedditorAlreadyInactiveError,
+    RedditorAlreadyMutedError,
     SubredditAlreadyActiveError,
     SubredditAlreadyInactiveError,
     SubredditNotFoundError,
@@ -17,16 +17,16 @@ from db.session import SessionLocal, init_db
 from db.crud import (
     get_rating,
     remove_watched_reddit,
-    remove_watched_user,
-    add_watched_user,
+    remove_watched_redditor,
+    add_watched_redditor,
     get_pending_notifications,
     add_telegram_user,
-    get_active_telegram_users,
-    add_watched_reddit,
+    get_active_telegram_users_chat_ids,
+    add_watched_subreddit,
     get_watched_subreddits,
-    mute_user,
-    unmute_user,
-    rate_user,
+    set_redditor_mute_timer,
+    unset_redditor_mute_timer,
+    set_redditor_rating,
     get_watched_users_with_rating,
     safe_commit,
 )
@@ -124,9 +124,9 @@ async def add(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     session = SessionLocal()
 
     try:
-        add_watched_user(session, redditor)
+        add_watched_redditor(session, redditor)
 
-    except UserAlreadyActiveError as e:
+    except RedditorAlreadyActiveError as e:
         await update.message.reply_text(f"⚠️ {e}")
         return
 
@@ -159,13 +159,13 @@ async def remove(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     session = SessionLocal()
 
     try:
-        remove_watched_user(session, redditor)
+        remove_watched_redditor(session, redditor)
 
-    except UserNotFoundError as e:
+    except RedditorNotFoundInDBError as e:
         await update.message.reply_text(f"⚠️ {e}")
         return
 
-    except UserAlreadyInactiveError as e:
+    except RedditorAlreadyInactiveError as e:
         await update.message.reply_text(f"⚠️ {e}")
         return
 
@@ -209,13 +209,13 @@ async def mute(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     session = SessionLocal()
 
     try:
-        mute_user(session, redditor, mute_time * timescale)
+        set_redditor_mute_timer(session, redditor, mute_time * timescale)
 
-    except UserNotFoundError as e:
+    except RedditorNotFoundInDBError as e:
         await update.message.reply_text(f"⚠️ {e}")
         return
 
-    except UserAlreadyMutedError as e:
+    except RedditorAlreadyMutedError as e:
         await update.message.reply_text(f"⚠️ {e}")
         return
 
@@ -248,9 +248,9 @@ async def unmute(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     session = SessionLocal()
 
     try:
-        unmute_user(session, redditor)
+        unset_redditor_mute_timer(session, redditor)
 
-    except UserNotFoundError as e:
+    except RedditorNotFoundInDBError as e:
         await update.message.reply_text(f"⚠️ {e}")
         return
 
@@ -283,10 +283,10 @@ async def rate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     session = SessionLocal()
 
     try:
-        rate_user(session, redditor, int(rating))
+        set_redditor_rating(session, redditor, int(rating))
         rating = get_rating(session, redditor)
 
-    except UserNotFoundError as e:
+    except RedditorNotFoundInDBError as e:
         await update.message.reply_text(f"⚠️{e}")
         return
 
@@ -356,7 +356,7 @@ async def addsub(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     session = SessionLocal()
 
     try:
-        add_watched_reddit(session, subreddit)
+        add_watched_subreddit(session, subreddit)
 
     except SubredditAlreadyActiveError as e:
         await update.message.reply_text(f"⚠️ {e}")
@@ -420,14 +420,14 @@ async def send_pending_notifications(bot) -> None:
 
         try:
             new_items = get_pending_notifications(session)
-            chat_ids = get_active_telegram_users(session)
+            chat_ids = get_active_telegram_users_chat_ids(session)
 
             for note in new_items:
 
                 try:
                     rating = get_rating(session, cast(str, note.author))
 
-                except UserNotFoundError as e:
+                except RedditorNotFoundInDBError as e:
                     print(f"⚠️{e}")
                     continue
 
