@@ -2,8 +2,8 @@ import asyncio
 from typing import cast
 from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler
-from config import TELEGRAM_BOT_TOKEN
-from reddit_client import redditor_exists, subreddit_exists
+from config.config import TELEGRAM_BOT_TOKEN
+from reddit.reddit_client import redditor_exists, subreddit_exists
 from db.exceptions import (
     UserNotFoundError,
     UserAlreadyActiveError,
@@ -34,7 +34,7 @@ from db.crud import (
 """GENERAL COMMANDS"""
 
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def start(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Telegram Bot Command so the Chatter gets added to the active telegram users in DB
     """
@@ -60,7 +60,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(f"👋 Hello {username or 'there'}!\n{msg}")
 
 
-async def help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def help(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Lists the available commands
     """
