@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 Loading all env variables
 """
 
-load_dotenv()
+load_dotenv("~/reddit_watcher/env/bot.env")
 
 # Reddit API
 REDDIT_CLIENT_ID = os.getenv("REDDIT_CLIENT_ID")

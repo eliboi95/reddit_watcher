@@ -1,5 +1,5 @@
 import praw
-import config
+import config.config as config
 import time
 from typing import Generator, cast
 from praw.models import Comment, Submission
@@ -10,13 +10,13 @@ from prawcore.exceptions import (
     NotFound,
     Redirect,
 )
-from db.models import (
+from db.session import SessionLocal
+from db.crud import (
     get_watched_subreddits,
     get_watched_users,
     add_comment,
     add_submission,
     is_muted,
-    SessionLocal,
 )
 
 

@@ -4,7 +4,17 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler
 from config import TELEGRAM_BOT_TOKEN
 from reddit_client import redditor_exists, subreddit_exists
-from db.models import (
+from db.exceptions import (
+    UserNotFoundError,
+    UserAlreadyActiveError,
+    UserAlreadyInactiveError,
+    UserAlreadyMutedError,
+    SubredditAlreadyActiveError,
+    SubredditAlreadyInactiveError,
+    SubredditNotFoundError,
+)
+from db.session import SessionLocal, init_db
+from db.crud import (
     get_rating,
     remove_watched_reddit,
     remove_watched_user,
@@ -19,15 +29,6 @@ from db.models import (
     rate_user,
     get_watched_users_with_rating,
     safe_commit,
-    SessionLocal,
-    UserNotFoundError,
-    UserAlreadyActiveError,
-    UserAlreadyInactiveError,
-    UserAlreadyMutedError,
-    SubredditAlreadyInactiveError,
-    SubredditNotFoundError,
-    SubredditAlreadyActiveError,
-    init_db,
 )
 
 """GENERAL COMMANDS"""
@@ -107,7 +108,7 @@ async def add(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     assert update.message
     assert update.effective_chat
 
-    if context.args == None or len(context.args) != 1:
+    if context.args is None or len(context.args) != 1:
         await update.message.reply_text(
             "🤪 Please use the commands correctly you dummy 🤪\n/add <redditor>\nCase sensitive btw...."
         )
@@ -148,7 +149,7 @@ async def remove(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     assert update.message
     assert update.effective_chat
 
-    if context.args == None or len(context.args) != 1:
+    if context.args is None or len(context.args) != 1:
         await update.message.reply_text(
             "👺Just try to use the commands as intended please👺\n/remove <redditor>"
         )
@@ -187,7 +188,7 @@ async def mute(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     assert update.message
     assert update.effective_chat
 
-    if context.args == None or len(context.args) != 3:
+    if context.args is None or len(context.args) != 3:
         await update.message.reply_text(
             "Okay i understand missusing this command. It's pretty dogshit💩\n/mute <redditor> <time> <unit>\nunits h: hours, d: days, y: years"
         )
@@ -237,7 +238,7 @@ async def unmute(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     assert update.message
     assert update.effective_chat
 
-    if context.args == None or len(context.args) != 1:
+    if context.args is None or len(context.args) != 1:
         await update.message.reply_text(
             "This one is easy to use....🤷\n/unmute <redditor>"
         )
@@ -271,7 +272,7 @@ async def rate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     assert update.message
     assert update.effective_chat
 
-    if context.args == None or len(context.args) != 2:
+    if context.args is None or len(context.args) != 2:
         await update.message.reply_text(
             "You can change the rating of specified redditor🤓\n/rate <redditor> <int>\nnegative or positiv int can be used"
         )
@@ -339,7 +340,7 @@ async def addsub(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     assert update.message
     assert update.effective_chat
 
-    if context.args == None or len(context.args) != 1:
+    if context.args is None or len(context.args) != 1:
         await update.message.reply_text(
             "🤪 Please use the commands correctly you dummy 🤪\n/add <subreddit>\nCase sensitive btw...."
         )
@@ -380,7 +381,7 @@ async def rmsub(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     assert update.message
     assert update.effective_chat
 
-    if context.args == None or len(context.args) != 1:
+    if context.args is None or len(context.args) != 1:
         await update.message.reply_text("Usage /rmsub <subreddit>")
         return
 
