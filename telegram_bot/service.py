@@ -1,6 +1,6 @@
 import asyncio
 from db.models import Notification
-from reddit.reddit_client import redditor_exists, subreddit_exists
+from reddit_bot.reddit_client import redditor_exists, subreddit_exists
 from db.exceptions import (
     RedditorDoesNotExistError,
     SubredditDoesNotExistError,
@@ -24,7 +24,7 @@ from db.crud import (
 """GENERAL COMMANDS"""
 
 
-def register_telegram_user(chat_id: int, username: str) -> str:
+def register_telegram_user(chat_id: int, username: str | None) -> str:
     """
     Register a Telegram user in the database.
 
@@ -61,7 +61,7 @@ def get_help() -> str:
 """REDDITOR COMMANDS"""
 
 
-def list_redditors_with_rating() -> list[str]:
+def list_redditors_with_rating() -> str:
     """
     Returns a list of strings for each Redditor. Each String is the Username and the Rating of the Redditor.
 
@@ -71,7 +71,9 @@ def list_redditors_with_rating() -> list[str]:
 
     try:
         list_of_redditors = get_watched_redditors_with_rating(session)
-        return [f"{username} {rating * '🚀'}" for username, rating in list_of_redditors]
+        return "\n".join(
+            [f"{username} {rating * '🚀'}" for username, rating in list_of_redditors]
+        )
 
     finally:
         session.close()

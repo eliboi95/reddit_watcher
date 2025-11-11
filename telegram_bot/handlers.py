@@ -30,14 +30,14 @@ from db.crud import (
     get_watched_redditors_with_rating,
     safe_commit,
 )
-from service import register_telegram_user
+from service import list_redditors_with_rating, register_telegram_user, get_help
 
 """GENERAL COMMANDS"""
 
 
 async def start(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     """
-    Telegram Bot Command so the Chatter gets added to the active telegram users in DB
+    Telegram Bot Command to add the User to active telegram users in DB.
     """
 
     assert update.message
@@ -51,7 +51,48 @@ async def start(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         msg = register_telegram_user(chat_id, username)
 
     except Exception as e:
-        await update.message.reply_text(f"⚠️ Unexpected Error: {e}")
+        await update.message.reply_text(
+            "⚠️ Sorry we have encountered an unexpected Error"
+        )
         return
 
     await update.message.reply_text(f"👋 Hello {username or 'there'}!\n{msg}")
+
+
+async def help(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Telegram Bot Command to get a list of all available commands.
+    """
+    assert update.message
+
+    try:
+        msg = get_help()
+
+    except Exception as e:
+        await update.message.reply_text(
+            "⚠️ Sorry we have encountered an unexpected Error"
+        )
+        return
+
+    await update.message.reply_text(f"🛠️ Available Bot Commands:\n{msg}")
+
+
+"""REDDITOR COMMANDS"""
+
+
+async def list(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Telegram Bot Command to list all Redditors that are beeing watched.
+    """
+    assert update.message
+
+    try:
+        msg = list_redditors_with_rating()
+
+    except Exception as e:
+        await update.message.reply_text(
+            "⚠️ Sorry we have encountered an unexpected Error"
+        )
+        return
+
+    await update.message.reply_text(f"📋 Watched Redditors 👀:\n{msg}")
