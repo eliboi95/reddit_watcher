@@ -73,7 +73,7 @@ def add_watched_subreddit(session: Session, subreddit_name: str) -> str:
     return f"Added new subreddit: {name}"
 
 
-def remove_watched_reddit(session: Session, subreddit_name: str) -> str:
+def remove_watched_subreddit(session: Session, subreddit_name: str) -> str:
     """
     Deactivates a Subreddit so it doesnt get watched anymore
     """
@@ -106,7 +106,7 @@ def get_watched_users(session: Session) -> list[str]:
     ]
 
 
-def get_watched_users_with_rating(session: Session) -> list[tuple[str, int]]:
+def get_watched_redditors_with_rating(session: Session) -> list[tuple[str, int]]:
     """
     Gets all the redditors on the watchlist including the rating
     """

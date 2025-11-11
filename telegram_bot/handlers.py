@@ -3,7 +3,7 @@ from typing import cast
 from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler
 from config.config import TELEGRAM_BOT_TOKEN
-from reddit.reddit_client import redditor_exists, subreddit_exists
+from reddit_bot.reddit_client import redditor_exists, subreddit_exists
 from db.exceptions import (
     RedditorNotFoundInDBError,
     RedditorAlreadyActiveError,
@@ -16,7 +16,7 @@ from db.exceptions import (
 from db.session import SessionLocal, init_db
 from db.crud import (
     get_rating,
-    remove_watched_reddit,
+    remove_watched_subreddit,
     remove_watched_redditor,
     add_watched_redditor,
     get_pending_notifications,
@@ -27,7 +27,7 @@ from db.crud import (
     set_redditor_mute_timer,
     unset_redditor_mute_timer,
     set_redditor_rating,
-    get_watched_users_with_rating,
+    get_watched_redditors_with_rating,
     safe_commit,
 )
 from service import register_telegram_user

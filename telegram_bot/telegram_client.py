@@ -16,7 +16,7 @@ from db.exceptions import (
 from db.session import SessionLocal, init_db
 from db.crud import (
     get_rating,
-    remove_watched_reddit,
+    remove_watched_subreddit,
     remove_watched_redditor,
     add_watched_redditor,
     get_pending_notifications,
@@ -27,7 +27,7 @@ from db.crud import (
     set_redditor_mute_timer,
     unset_redditor_mute_timer,
     set_redditor_rating,
-    get_watched_users_with_rating,
+    get_watched_redditors_with_rating,
     safe_commit,
 )
 
@@ -84,7 +84,7 @@ async def list(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     session = SessionLocal()
 
     try:
-        user_ratings = get_watched_users_with_rating(session)
+        user_ratings = get_watched_redditors_with_rating(session)
         users = [f"{user} {rating*'🚀'}" for user, rating in user_ratings]
 
     except Exception as e:
@@ -389,7 +389,7 @@ async def rmsub(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     session = SessionLocal()
 
     try:
-        remove_watched_reddit(session, subreddit)
+        remove_watched_subreddit(session, subreddit)
 
     except SubredditNotFoundError as e:
         await update.message.reply_text(f"⚠️ {e}")
