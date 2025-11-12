@@ -96,7 +96,7 @@ def remove_watched_subreddit(session: Session, subreddit_name: str) -> str:
 """REDDITORS"""
 
 
-def get_watched_users(session: Session) -> list[str]:
+def get_watched_redditors(session: Session) -> list[str]:
     """
     Gets all the redditors on the watchlist
     """

@@ -8,6 +8,7 @@ from db.exceptions import (
 from db.session import SessionLocal
 from db.crud import (
     get_rating,
+    get_watched_redditors,
     mark_notifications_not_pending,
     remove_watched_subreddit,
     remove_watched_redditor,
@@ -63,9 +64,22 @@ def get_help() -> str:
 """REDDITOR COMMANDS"""
 
 
+def list_redditors() -> list[str]:
+    """
+    Returns a list of the Usernames of all watched Redditors.
+    """
+    session = SessionLocal()
+
+    try:
+        return get_watched_redditors(session)
+
+    finally:
+        session.close()
+
+
 def list_redditors_with_rating() -> str:
     """
-    Returns a list of strings for each Redditor. Each String is the Username and the Rating of the Redditor.
+    Returns a string with each Redditor. Each String is the Username and the Rating of the Redditor.
 
     Handles session management around `get_watched_redditors_with_rating` and formatting the strings for each redditor.
     """

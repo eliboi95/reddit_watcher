@@ -1,7 +1,14 @@
 import asyncio
 from typing import cast
-from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
+from telegram import (
+    Update,
+    ReplyKeyboardMarkup,
+    ReplyKeyboardRemove,
+    InlineKeyboardMarkup,
+    InlineKeyboardButton,
+)
 from telegram.ext import (
+    CallbackQueryHandler,
     ApplicationBuilder,
     ContextTypes,
     CommandHandler,
@@ -17,6 +24,7 @@ from telegram_bot.service import (
     close_pending_notifications,
     list_active_telegram_users_chat_ids,
     list_pending_notifications,
+    list_redditors,
     list_redditors_with_rating,
     list_subreddits,
     mute_redditor,
@@ -188,46 +196,82 @@ async def remove_start(update: Update, _: ContextTypes.DEFAULT_TYPE) -> int:
     """
     assert update.message
 
+    redditors = list_redditors()
+
+    if not redditors:
+        await update.message.reply_text("No Redditors found in the DB")
+        return ConversationHandler.END
+
+    keyboard = [
+        [InlineKeyboardButton(name, callback_data=f"remove: {name}")]
+        for name in redditors
+    ]
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
     await update.message.reply_text(
-        "Who do you want to remove?\nSend me a list of redditors separated by spaces.\nRedditor1 Redditor2 Redditor3"
+        "Who do you want to remove?", reply_markup=reply_markup
     )
     return ASK_FOR_REDDITORS_TO_REMOVE
 
 
-async def remove_redditors(update: Update, _: ContextTypes.DEFAULT_TYPE) -> int:
+async def remove_redditor_button(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> int:
     """
-    Step 1: Receiving the Redditors in a str, splitting it and for each Redditor try to remove it from the db.
-    Respond to User with the Redditors that were removed and those that failed.
+    Handles when a redditor button is pressed.
     """
-    assert update.message
+    query = update.callback_query
+    assert query
+    await query.answer()
+    assert query.data
 
-    if not update.message.text:
-        await update.message.reply_text(
-            "I need at least one redditor name to continue 🙂"
-        )
-        return ASK_FOR_REDDITORS_TO_REMOVE
+    redditor = query.data.split(":", 1)[1]
 
-    redditors = update.message.text.split()
-    removed = []
-    failed = []
+    try:
+        remove_redditor_from_db(redditor)
+        await query.edit_message_text(f"✅ Removed {redditor} from the database.")
+    except Exception as e:
+        await query.edit_message_text(f"🚨 Failed to remove {redditor}: {e}")
 
-    for redditor in redditors:
-        try:
-            remove_redditor_from_db(redditor)
-            removed.append(redditor)
-
-        except Exception as e:
-            failed.append(redditor)
-
-    msg = ""
-
-    if removed:
-        msg += f"✅ Removed: \n{'\n'.join(removed)}\n"
-    if failed:
-        msg += f"🚨 Failed to remove:\n{'\n'.join(failed)}\n"
-
-    await update.message.reply_text(msg)
     return ConversationHandler.END
+
+
+# async def remove_redditors(update: Update, _: ContextTypes.DEFAULT_TYPE) -> int:
+#     """
+#     Step 1: Receiving the Redditors in a str, splitting it and for each Redditor try to remove it from the db.
+#     Respond to User with the Redditors that were removed and those that failed.
+#     """
+#     assert update.message
+#
+#     if not update.message.text:
+#         await update.message.reply_text(
+#             "I need at least one redditor name to continue 🙂"
+#         )
+#         return ASK_FOR_REDDITORS_TO_REMOVE
+#
+#     redditors = update.message.text.split()
+#     removed = []
+#     failed = []
+#
+#     for redditor in redditors:
+#         try:
+#             remove_redditor_from_db(redditor)
+#             removed.append(redditor)
+#
+#         except Exception as e:
+#             failed.append(redditor)
+#
+#     msg = ""
+#
+#     if removed:
+#         msg += f"✅ Removed: \n{'\n'.join(removed)}\n"
+#     if failed:
+#         msg += f"🚨 Failed to remove:\n{'\n'.join(failed)}\n"
+#
+#     await update.message.reply_text(msg)
+#     return ConversationHandler.END
+#
 
 
 async def mute_start(update: Update, _: ContextTypes.DEFAULT_TYPE) -> int:
@@ -599,13 +643,22 @@ if __name__ == "__main__":
         entry_points=[CommandHandler("remove", remove_start)],
         states={
             ASK_FOR_REDDITORS_TO_REMOVE: [
-                CommandHandler("cancel", cancel_conversation),
-                MessageHandler(filters.TEXT & ~filters.COMMAND, remove_redditors),
+                CallbackQueryHandler(remove_redditor_button, pattern=r"^remove:")
             ],
         },
         fallbacks=[CommandHandler("cancel", cancel_conversation)],
     )
-
+    # remove_conv_handler = ConversationHandler(
+    #     entry_points=[CommandHandler("remove", remove_start)],
+    #     states={
+    #         ASK_FOR_REDDITORS_TO_REMOVE: [
+    #             CommandHandler("cancel", cancel_conversation),
+    #             MessageHandler(filters.TEXT & ~filters.COMMAND, remove_redditors),
+    #         ],
+    #     },
+    #     fallbacks=[CommandHandler("cancel", cancel_conversation)],
+    # )
+    #
     # Mute Redditor
     mute_conv_handler = ConversationHandler(
         entry_points=[CommandHandler("mute", mute_start)],

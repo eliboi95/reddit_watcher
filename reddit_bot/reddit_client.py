@@ -18,7 +18,7 @@ from prawcore.exceptions import (
 from db.session import SessionLocal
 from db.crud import (
     get_watched_subreddits,
-    get_watched_users,
+    get_watched_redditors,
     add_comment,
     add_submission,
     is_muted,
@@ -99,7 +99,7 @@ def watch_loop():
                 session = SessionLocal()
                 subs = get_watched_subreddits(session)
                 subnames = [str(s) for s in subs]
-                users = get_watched_users(session)
+                users = get_watched_redditors(session)
                 new_sub_str = "+".join(subnames) if subs else "test"
                 print(new_sub_str)
                 if new_sub_str != sub_str:
