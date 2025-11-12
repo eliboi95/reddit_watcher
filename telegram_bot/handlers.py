@@ -244,7 +244,6 @@ async def mute_choose_unit(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     """
     Step 1: Save Redditor to context and get Unit of time from User h/d/y
     """
-    assert context.user_data
     assert update.message
 
     if not update.message.text:
@@ -375,7 +374,6 @@ async def rate_ask_amount(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     """
     Step 1: Save Redditor to context and getting an amount for the rating change
     """
-    assert context.user_data
     assert update.message
 
     if not update.message.text:
@@ -404,11 +402,12 @@ async def rate_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 
     rating_text = update.message.text.strip()
 
-    if not rating_text.isdigit():
+    try:
+        rating = int(rating_text)
+    except ValueError:
         await update.message.reply_text("I need a valid number 🙂")
         return ASK_FOR_AMOUNT_TO_RATE
 
-    rating = int(rating_text)
     redditor = context.user_data["redditor"]
     try:
         rate_redditor(redditor, rating)
