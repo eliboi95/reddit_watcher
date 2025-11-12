@@ -296,6 +296,23 @@ def get_notifications(session: Session) -> list[list[str]]:
     return [[n.type, n.author, n.content] for n in session.query(Notification).all()]
 
 
+def mark_notifications_not_pending(
+    session: Session, notification_ids: list[str]
+) -> None:
+    """
+    Mark all sent notifications as not pending
+    """
+    notifications = (
+        session.query(Notification).filter(Notification.id.in_(notification_ids)).all()
+    )
+
+    for notification in notifications:
+        notification.delivered = True
+    safe_commit(session)
+
+    return
+
+
 """TELEGRAM USERS"""
 
 

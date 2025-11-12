@@ -1,7 +1,7 @@
 from config.config import DB_URL
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from .models import Base
+from db.models import Base
 
 engine = create_engine(DB_URL, echo=False)
 SessionLocal = sessionmaker(bind=engine)

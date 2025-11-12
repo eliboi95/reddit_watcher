@@ -32,7 +32,7 @@ class WatchedRedditor(Base):
 class Notification(Base):
     __tablename__ = "notifications"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    id: Mapped[str] = mapped_column(String, primary_key=True)
     type: Mapped[str] = mapped_column(String)
     author: Mapped[str] = mapped_column(String)
     content: Mapped[str] = mapped_column(String)

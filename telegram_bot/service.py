@@ -7,6 +7,8 @@ from db.exceptions import (
 )
 from db.session import SessionLocal
 from db.crud import (
+    get_rating,
+    mark_notifications_not_pending,
     remove_watched_subreddit,
     remove_watched_redditor,
     add_watched_redditor,
@@ -114,12 +116,21 @@ def remove_redditor_from_db(username: str) -> None:
         session.close()
 
 
-def mute_redditor(username: str, mute_time: float) -> None:
+def mute_redditor(username: str, mute_unit: str, mute_amount: int) -> None:
     """
     Mutes a Redditor for a specified amount of time.
 
     Handles Session management around `set_redditor_mute_timer`.
     """
+    mute_time = (
+        mute_amount * 60
+        if mute_unit == "hours"
+        else (
+            mute_amount * 60 * 24
+            if mute_unit == "days"
+            else mute_amount * 60 * 24 * 365
+        )
+    )
     session = SessionLocal()
 
     try:
@@ -159,6 +170,19 @@ def rate_redditor(username: str, rating: int) -> None:
         session.close()
 
 
+def get_rating_of_redditor(username: str) -> int:
+    """
+    Returns the Rating of specified Redditor
+    """
+    session = SessionLocal()
+
+    try:
+        return get_rating(session, username)
+
+    finally:
+        session.close()
+
+
 """SUBREDDIT COMMANDS"""
 
 
@@ -177,13 +201,13 @@ def list_subreddits() -> str:
         session.close()
 
 
-def add_subreddit_to_db(subreddit_name: str) -> None:
+async def add_subreddit_to_db(subreddit_name: str) -> None:
     """
     Adds a Subreddit to the DB.
 
     Checks if Subreddit exists on Reddit and handles Session management aroud `add_watched_subreddit`.
     """
-    exists = subreddit_exists(subreddit_name)
+    exists = await asyncio.to_thread(subreddit_exists, subreddit_name)
 
     if not exists:
         raise SubredditDoesNotExistError
@@ -222,6 +246,20 @@ def list_pending_notifications() -> list[Notification]:
 
     try:
         return get_pending_notifications(session)
+
+    finally:
+        session.close()
+
+
+def close_pending_notifications(notification_ids: list[str]) -> None:
+    """
+    CLoses all pending Notifications by iD
+    """
+
+    session = SessionLocal()
+
+    try:
+        mark_notifications_not_pending(session, notification_ids)
 
     finally:
         session.close()
