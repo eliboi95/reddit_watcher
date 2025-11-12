@@ -541,6 +541,7 @@ async def send_pending_notifications(bot) -> None:
 
         new_items = list_pending_notifications()
         chat_ids = list_active_telegram_users_chat_ids()
+        notification_ids = []
 
         for note in new_items:
 
@@ -559,11 +560,11 @@ async def send_pending_notifications(bot) -> None:
 
                 except Exception as e:
                     print(f"Failed to send to {chat_id}: {e}")
-
-        notification_ids = [n.id for n in new_items]
+            notification_ids.append(note.id)
 
         try:
             close_pending_notifications(notification_ids)
+            notification_ids = []
         except Exception as e:
             print(f"{e}")
         await asyncio.sleep(5)
