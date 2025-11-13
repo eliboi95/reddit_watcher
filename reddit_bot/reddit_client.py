@@ -8,7 +8,8 @@ from prawcore.exceptions import (RequestException, ResponseException,
 from config.config import REDDIT_POLL_INTERVAL, WATCHLIST_UPDATE_INTERVAL
 from reddit_bot.reddit_service import (add_comment, add_submission, get_reddit,
                                        get_redditor_list,
-                                       get_subreddits_string, muted)
+                                       get_subreddits_string,
+                                       is_author_of_parent, muted)
 
 
 def watch_loop():
@@ -60,8 +61,11 @@ def watch_loop():
                     time.sleep(1)
                     break
 
-                author = str(comment.author)
+                author = comment.author.name
                 if author not in users:
+                    continue
+
+                if is_author_of_parent(author, comment):
                     continue
 
                 if muted(author):
@@ -76,7 +80,7 @@ def watch_loop():
                     time.sleep(1)
                     break
 
-                author = str(submission.author)
+                author = submission.author.name
 
                 if author not in users:
                     continue

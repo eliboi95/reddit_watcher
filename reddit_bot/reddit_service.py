@@ -60,6 +60,16 @@ def subreddit_exists(name: str) -> bool:
     return True
 
 
+def is_author_of_parent(author_name: str, comment: Comment) -> bool:
+    try:
+        parent_author_name = comment.parent().author.name
+
+    except Exception as e:
+        return False
+
+    return author_name == parent_author_name
+
+
 def get_subreddits_string() -> str:
     session = SessionLocal()
 
