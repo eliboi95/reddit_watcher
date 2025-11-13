@@ -294,6 +294,10 @@ async def mute_choose_unit(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         return ASK_FOR_REDDITOR_TO_MUTE
 
     redditor = update.message.text.strip()
+
+    if context.user_data is None:
+        context.user_data = {}
+
     context.user_data["redditor"] = redditor
 
     reply_keyboard = [TIME_UNITS]
