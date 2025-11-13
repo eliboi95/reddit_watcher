@@ -1,84 +1,18 @@
-import praw
-from config.config import (
-    REDDIT_CLIENT_ID,
-    REDDIT_CLIENT_SECRET,
-    REDDIT_USER_AGENT,
-    REDDIT_POLL_INTERVAL,
-)
 import time
 from typing import Generator, cast
+
 from praw.models import Comment, Submission
-from prawcore.exceptions import (
-    RequestException,
-    ResponseException,
-    ServerError,
-    NotFound,
-    Redirect,
-)
-from db.session import SessionLocal
-from db.crud import (
-    get_watched_subreddits,
-    get_watched_redditors,
-    add_comment,
-    add_submission,
-    is_muted,
-)
+from prawcore.exceptions import (RequestException, ResponseException,
+                                 ServerError)
 
-
-def get_reddit() -> praw.Reddit:
-    """
-    Create and return a Reddit client.
-    """
-    return praw.Reddit(
-        client_id=REDDIT_CLIENT_ID,
-        client_secret=REDDIT_CLIENT_SECRET,
-        user_agent=REDDIT_USER_AGENT,
-    )
-
-
-def redditor_exists(name: str) -> bool:
-    """
-    Function to check if redditor exists
-    """
-    try:
-        reddit = get_reddit()
-        reddit.redditor(name).id
-
-    except NotFound:
-        return False
-
-    except Redirect:
-        return False
-
-    except AttributeError:
-        return False
-
-    return True
-
-
-def subreddit_exists(name: str) -> bool:
-    """
-    Function to check if subreddit exists
-    """
-    try:
-        reddit = get_reddit()
-        reddit.subreddit(name).id
-
-    except NotFound:
-        return False
-
-    except Redirect:
-        return False
-
-    except AttributeError:
-        return False
-
-    return True
+from config.config import REDDIT_POLL_INTERVAL, WATCHLIST_UPDATE_INTERVAL
+from reddit_bot.reddit_service import (add_comment, add_submission, get_reddit,
+                                       get_redditor_list,
+                                       get_subreddits_string, muted)
 
 
 def watch_loop():
     reddit = get_reddit()
-    session = None
     last_reload = 0
     sub_str = ""
     comment_stream: Generator[Comment | None, None, None] = cast(
@@ -92,19 +26,22 @@ def watch_loop():
 
     while True:
         try:
-            if time.time() - last_reload > 2:
-                if session:
-                    session.close()
+            if time.time() - last_reload > WATCHLIST_UPDATE_INTERVAL:
 
-                session = SessionLocal()
-                subs = get_watched_subreddits(session)
-                subnames = [str(s) for s in subs]
-                users = get_watched_redditors(session)
-                new_sub_str = "+".join(subnames) if subs else "test"
+                try:
+                    subs = get_subreddits_string()
+                    users = get_redditor_list()
+                except Exception as e:
+                    continue
+
+                new_sub_str = subs if subs else "test"
+
                 print(new_sub_str)
+
                 if new_sub_str != sub_str:
                     sub_str = new_sub_str
                     subreddit = reddit.subreddit(sub_str)
+
                     comment_stream: Generator[Comment | None, None, None] = (
                         subreddit.stream.comments(skip_existing=False, pause_after=-1)
                     )
@@ -117,7 +54,6 @@ def watch_loop():
                 last_reload = time.time()
 
             # process comments
-            assert session
 
             for comment in comment_stream:
                 if comment is None:
@@ -128,10 +64,10 @@ def watch_loop():
                 if author not in users:
                     continue
 
-                if is_muted(session, author):
+                if muted(author):
                     continue
 
-                add_comment(session, comment)
+                add_comment(comment)
                 print(f"added comment: {author}")
 
             # process submissions similarly...
@@ -145,10 +81,10 @@ def watch_loop():
                 if author not in users:
                     continue
 
-                if is_muted(session, author):
+                if muted(author):
                     continue
 
-                add_submission(session, submission)
+                add_submission(submission)
 
             time.sleep(REDDIT_POLL_INTERVAL)
 
@@ -166,9 +102,6 @@ def watch_loop():
 
         finally:
             pass
-
-    if session:
-        session.close()
 
 
 if __name__ == "__main__":

@@ -1,43 +1,24 @@
 import asyncio
 from typing import cast
-from telegram import (
-    Update,
-    ReplyKeyboardMarkup,
-    ReplyKeyboardRemove,
-    InlineKeyboardMarkup,
-    InlineKeyboardButton,
-)
-from telegram.ext import (
-    CallbackQueryHandler,
-    ApplicationBuilder,
-    ContextTypes,
-    CommandHandler,
-    ConversationHandler,
-    MessageHandler,
-    filters,
-)
-from config.config import TELEGRAM_BOT_TOKEN
-from telegram_bot.service import (
-    add_redditor_to_db,
-    add_subreddit_to_db,
-    close_pending_notifications,
-    list_active_telegram_users_chat_ids,
-    list_pending_notifications,
-    list_redditors,
-    list_redditors_with_rating,
-    list_subreddits,
-    mute_redditor,
-    rate_redditor,
-    register_telegram_user,
-    get_help,
-    remove_redditor_from_db,
-    remove_subreddit_from_db,
-    unmute_redditor,
-    get_rating_of_redditor,
-)
-import os
 
-print(os.path.exists(os.path.expanduser("~/reddit_watcher/env/bot.env")))
+from telegram import (InlineKeyboardButton, InlineKeyboardMarkup,
+                      ReplyKeyboardMarkup, ReplyKeyboardRemove, Update)
+from telegram.ext import (ApplicationBuilder, CallbackQueryHandler,
+                          CommandHandler, ContextTypes, ConversationHandler,
+                          MessageHandler, filters)
+
+from config.config import TELEGRAM_BOT_TOKEN
+from telegram_bot.service import (add_redditor_to_db, add_subreddit_to_db,
+                                  close_pending_notifications, get_help,
+                                  get_rating_of_redditor,
+                                  list_active_telegram_users_chat_ids,
+                                  list_pending_notifications, list_redditors,
+                                  list_redditors_with_rating, list_subreddits,
+                                  mute_redditor, rate_redditor,
+                                  register_telegram_user,
+                                  remove_redditor_from_db,
+                                  remove_subreddit_from_db, unmute_redditor)
+
 TIME_UNITS = ["hours", "days", "years"]
 
 """Conversation States"""

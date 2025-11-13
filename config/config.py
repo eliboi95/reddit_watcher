@@ -1,4 +1,5 @@
 import os
+
 from dotenv import load_dotenv
 
 """
@@ -6,8 +7,6 @@ Loading all env variables
 """
 dotenv_path = os.path.expanduser("~/reddit_watcher/env/bot.env")
 load_dotenv(dotenv_path)
-
-print("TELEGRAM_BOT_TOKEN:", os.getenv("TELEGRAM_BOT_TOKEN"))
 
 # Reddit API
 REDDIT_CLIENT_ID = os.getenv("REDDIT_CLIENT_ID")
@@ -19,6 +18,9 @@ TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
 # Poll intervals
 REDDIT_POLL_INTERVAL = 5
+
+# Subreddits Watchlist intervals
+WATCHLIST_UPDATE_INTERVAL = 5
 
 """
 Database URL

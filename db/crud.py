@@ -1,18 +1,17 @@
 import time
-from .models import WatchedSubreddit, WatchedRedditor, TelegramUser, Notification
+
 from praw.models import Comment, Submission
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
-from .exceptions import (
-    RedditorDoesNotExistError,
-    RedditorAlreadyActiveError,
-    RedditorNotFoundInDBError,
-    RedditorAlreadyMutedError,
-    RedditorAlreadyInactiveError,
-    SubredditAlreadyInactiveError,
-    SubredditAlreadyActiveError,
-    SubredditNotFoundError,
-)
+
+from .exceptions import (RedditorAlreadyActiveError,
+                         RedditorAlreadyInactiveError,
+                         RedditorAlreadyMutedError, RedditorDoesNotExistError,
+                         RedditorNotFoundInDBError,
+                         SubredditAlreadyActiveError,
+                         SubredditAlreadyInactiveError, SubredditNotFoundError)
+from .models import (Notification, TelegramUser, WatchedRedditor,
+                     WatchedSubreddit)
 
 
 def safe_commit(session: Session, retries: int = 3, delay: float = 0.5) -> None:
@@ -241,7 +240,7 @@ def get_rating(session: Session, username: str) -> int:
 """SUBMISSIONS"""
 
 
-def add_comment(session: Session, comment: Comment) -> str:
+def add_comment_to_db(session: Session, comment: Comment) -> str:
     """
     Adds a comment to the notifications table
     """
@@ -259,7 +258,7 @@ def add_comment(session: Session, comment: Comment) -> str:
     return "comment added"
 
 
-def add_submission(session: Session, submission: Submission) -> str:
+def add_submission_to_db(session: Session, submission: Submission) -> str:
     """
     Adds a submission to the notifications table
     """

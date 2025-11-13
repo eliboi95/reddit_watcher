@@ -1,28 +1,17 @@
 import asyncio
+
+from db.crud import (add_telegram_user, add_watched_redditor,
+                     add_watched_subreddit, get_active_telegram_users_chat_ids,
+                     get_pending_notifications, get_rating,
+                     get_watched_redditors, get_watched_redditors_with_rating,
+                     get_watched_subreddits, mark_notifications_not_pending,
+                     remove_watched_redditor, remove_watched_subreddit,
+                     set_redditor_mute_timer, set_redditor_rating,
+                     unset_redditor_mute_timer)
+from db.exceptions import RedditorDoesNotExistError, SubredditDoesNotExistError
 from db.models import Notification
-from reddit_bot.reddit_client import redditor_exists, subreddit_exists
-from db.exceptions import (
-    RedditorDoesNotExistError,
-    SubredditDoesNotExistError,
-)
 from db.session import SessionLocal
-from db.crud import (
-    get_rating,
-    get_watched_redditors,
-    mark_notifications_not_pending,
-    remove_watched_subreddit,
-    remove_watched_redditor,
-    add_watched_redditor,
-    get_pending_notifications,
-    add_telegram_user,
-    get_active_telegram_users_chat_ids,
-    add_watched_subreddit,
-    get_watched_subreddits,
-    set_redditor_mute_timer,
-    unset_redditor_mute_timer,
-    set_redditor_rating,
-    get_watched_redditors_with_rating,
-)
+from reddit_bot.reddit_service import redditor_exists, subreddit_exists
 
 """GENERAL COMMANDS"""
 

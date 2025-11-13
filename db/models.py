@@ -1,6 +1,5 @@
-from sqlalchemy import Integer, String, Boolean, Float
+from sqlalchemy import Boolean, Float, Integer, String
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-
 
 """MODELS"""
 
