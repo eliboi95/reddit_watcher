@@ -17,7 +17,6 @@ from telegram.ext import (
     filters,
 )
 from config.config import TELEGRAM_BOT_TOKEN
-from db.models import Notification
 from telegram_bot.service import (
     add_redditor_to_db,
     add_subreddit_to_db,

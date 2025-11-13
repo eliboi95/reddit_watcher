@@ -8,7 +8,6 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 class Base(DeclarativeBase):
     """Base Model"""
 
-    pass
 
 
 class WatchedSubreddit(Base):
