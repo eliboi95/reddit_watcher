@@ -1,23 +1,50 @@
 import asyncio
 from typing import cast
 
-from telegram import (InlineKeyboardButton, InlineKeyboardMarkup,
-                      ReplyKeyboardMarkup, ReplyKeyboardRemove, Update)
-from telegram.ext import (ApplicationBuilder, CallbackQueryHandler,
-                          CommandHandler, ContextTypes, ConversationHandler,
-                          MessageHandler, filters)
+from db.exceptions import (
+    RedditorAlreadyActiveError,
+    RedditorAlreadyInactiveError,
+    SubredditAlreadyActiveError,
+    SubredditAlreadyInactiveError,
+)
+from telegram import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    ReplyKeyboardMarkup,
+    ReplyKeyboardRemove,
+    Update,
+)
+from telegram.ext import (
+    ApplicationBuilder,
+    CallbackQueryHandler,
+    CommandHandler,
+    ContextTypes,
+    ConversationHandler,
+    MessageHandler,
+    filters,
+)
 
 from config.config import TELEGRAM_BOT_TOKEN
-from telegram_bot.service import (add_redditor_to_db, add_subreddit_to_db,
-                                  close_pending_notifications, get_help,
-                                  get_rating_of_redditor,
-                                  list_active_telegram_users_chat_ids,
-                                  list_pending_notifications, list_redditors,
-                                  list_redditors_with_rating, list_subreddits,
-                                  mute_redditor, rate_redditor,
-                                  register_telegram_user,
-                                  remove_redditor_from_db,
-                                  remove_subreddit_from_db, unmute_redditor)
+from telegram_bot.service import (
+    add_redditor_to_db,
+    add_subreddit_to_db,
+    close_pending_notifications,
+    get_help,
+    get_rating_of_redditor,
+    list_active_telegram_users_chat_ids,
+    list_pending_notifications,
+    list_redditors,
+    list_redditors_with_rating,
+    list_subreddits,
+    mute_redditor,
+    rate_redditor,
+    register_telegram_user,
+    remove_redditor_from_db,
+    remove_subreddit_from_db,
+    unmute_redditor,
+)
+
+import logging
 
 TIME_UNITS = ["hours", "days", "years"]
 
@@ -46,6 +73,8 @@ ASK_FOR_SUBREDDITS_TO_ADD = 0
 # Remove subreddit conversation
 ASK_FOR_SUBREDDITS_TO_REMOVE = 0
 
+logger = logging.getLogger("reddit_watcher.telegram_bot.handlers")
+
 """GENERAL COMMANDS"""
 
 
@@ -68,6 +97,7 @@ async def start(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text(
             "⚠️ Sorry we have encountered an unexpected Error"
         )
+        logger.error(f"{e}")
         return
 
     await update.message.reply_text(f"👋 Hello {username or 'there'}!\n{msg}")
@@ -86,6 +116,7 @@ async def help(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text(
             "⚠️ Sorry we have encountered an unexpected Error"
         )
+        logger.error(f"{e}")
         return
 
     await update.message.reply_text(f"🛠️ Available Bot Commands:\n{msg}")
@@ -117,6 +148,7 @@ async def list(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text(
             "⚠️ Sorry we have encountered an unexpected Error"
         )
+        logger.error(f"{e}")
         return
 
     await update.message.reply_text(f"📋 Watched Redditors 👀:\n{msg}")
@@ -155,9 +187,12 @@ async def add_redditors(update: Update, _: ContextTypes.DEFAULT_TYPE) -> int:
         try:
             await add_redditor_to_db(redditor)
             added.append(redditor)
-
+        except RedditorAlreadyActiveError as e:
+            added.append(redditor)
+            logger.info(f"{e}")
         except Exception as e:
             failed.append(redditor)
+            logger.error(f"{e}")
 
     msg = ""
 
@@ -211,6 +246,10 @@ async def remove_redditor_button(
     try:
         remove_redditor_from_db(redditor)
         await query.edit_message_text(f"✅ Removed {redditor} from the database.")
+    except RedditorAlreadyInactiveError as e:
+        await query.edit_message_text(f"✅ Removed {redditor} from the database.")
+        logger.info(f"{redditor} is allready inactive in DB: {e}")
+
     except Exception as e:
         await query.edit_message_text(f"🚨 Failed to remove {redditor}: {e}")
 
@@ -342,6 +381,7 @@ async def mute_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 
     except Exception as e:
         await update.message.reply_text("Sorry we have encountered an unexpected Error")
+        logger.error("f{e}")
         return ConversationHandler.END
 
 
@@ -385,6 +425,7 @@ async def unmute_confirm(update: Update, _: ContextTypes.DEFAULT_TYPE) -> int:
         return ConversationHandler.END
     except Exception as e:
         await update.message.reply_text("Sorry we have encountered an unexpected Error")
+        logger.error(f"{e}")
         return ConversationHandler.END
 
 
@@ -432,8 +473,9 @@ async def rate_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 
     try:
         rating = int(rating_text)
-    except ValueError:
+    except ValueError as e:
         await update.message.reply_text("I need a valid number 🙂")
+        logger.warning(f"{e}")
         return ASK_FOR_AMOUNT_TO_RATE
 
     redditor = context.user_data["redditor"]
@@ -443,6 +485,7 @@ async def rate_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
         return ConversationHandler.END
     except Exception as e:
         await update.message.reply_text("Sorry we have encountered an unexpected Error")
+        logger.error(f"{e}")
         return ConversationHandler.END
 
 
@@ -462,6 +505,7 @@ async def listsubs(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text(
             "⚠️ Sorry we have encountered an unexpected Error"
         )
+        logger.error(f"{e}")
         return
 
     await update.message.reply_text(f"📋 Watched Subreddits👀:\n{msg}")
@@ -500,8 +544,13 @@ async def add_subreddits(update: Update, _: ContextTypes.DEFAULT_TYPE) -> int:
             await add_subreddit_to_db(sub)
             added.append(sub)
 
+        except SubredditAlreadyActiveError as e:
+            added.append(sub)
+            logger.info(f"{e}")
+
         except Exception as e:
             failed.append(sub)
+            logger.error(f"{e}")
 
     msg = ""
 
@@ -545,9 +594,12 @@ async def remove_subreddits(update: Update, _: ContextTypes.DEFAULT_TYPE) -> int
         try:
             remove_subreddit_from_db(sub)
             removed.append(sub)
-
+        except SubredditAlreadyInactiveError as e:
+            removed.append(sub)
+            logger.info(f"{e}")
         except Exception as e:
             failed.append(sub)
+            logger.error(f"{e}")
 
     msg = ""
 
@@ -576,7 +628,7 @@ async def send_pending_notifications(bot) -> None:
                 rating = get_rating_of_redditor(cast(str, note.author))
 
             except Exception as e:
-                print(f"Unexpected Erorr: {e}")
+                logger.error(f"{e}")
                 continue
 
             message = f"📢 New {note.type} by {note.author}{'🚀' * rating}\n{note.url}"
@@ -584,16 +636,17 @@ async def send_pending_notifications(bot) -> None:
             for chat_id in chat_ids:
                 try:
                     await bot.send_message(chat_id=chat_id, text=message)
+                    logger.info(f"Sent message to {chat_id}")
 
                 except Exception as e:
-                    print(f"Failed to send to {chat_id}: {e}")
+                    logger.error(f"Failed to send to {chat_id}: {e}")
             notification_ids.append(note.id)
 
         try:
             close_pending_notifications(notification_ids)
             notification_ids = []
         except Exception as e:
-            print(f"{e}")
+            logger.error(f"{e}")
         await asyncio.sleep(5)
 
 

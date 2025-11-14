@@ -5,8 +5,31 @@ import sys
 import time
 import types
 from typing import Optional
+import logging
+from logging.handlers import RotatingFileHandler
 
 from db.session import init_db  # ensure db creation
+
+
+logger = logging.getLogger("reddit_watcher")
+
+console_handler = logging.StreamHandler()
+rotating_file_handler = RotatingFileHandler(
+    filename="bot.log", maxBytes=2000, backupCount=5
+)
+
+console_handler.setLevel(logging.INFO)
+rotating_file_handler.setLevel(logging.ERROR)
+
+logging_format = logging.Formatter(
+    "%(asctime)s - %(levelname)s - [%(name)s] - %(filename)s:%(lineno)d in %(funcName)s() - %(message)s"
+)
+
+console_handler.setFormatter(logging_format)
+rotating_file_handler.setFormatter(logging_format)
+
+logger.addHandler(console_handler)
+logger.addHandler(rotating_file_handler)
 
 
 # -------------------------
@@ -24,7 +47,7 @@ def start_subprocess(module: str) -> Optional[subprocess.Popen]:
             env={**os.environ, "PYTHONPATH": project_root},
         )
     except Exception as e:
-        print(f"Failed to start module {module}: {e}")
+        logger.error(f"Failed to start module {module}: {e}")
         return None
 
 
@@ -37,7 +60,7 @@ def handle_exit(
     processes: list[Optional[subprocess.Popen]],
 ) -> None:
     """Gracefully terminate subprocesses on exit signal."""
-    print("\nStopping both scripts...")
+    logger.info("Stopping both scripts...")
 
     for p in processes:
         if p and p.poll() is None:
@@ -56,7 +79,7 @@ def handle_exit(
                 except Exception:
                     pass
 
-    print("Both scripts stopped.")
+    logger.info("Both scripts stopped.")
     sys.exit(0)
 
 
@@ -77,7 +100,7 @@ if __name__ == "__main__":
     # Handle Ctrl+C
     signal.signal(signal.SIGINT, lambda sig, frame: handle_exit(sig, frame, processes))
 
-    print("Both scripts started. Press Ctrl+C to stop.")
+    logger.info("Both scripts started. Press Ctrl+C to stop.")
 
     # Keep main alive
     try:
