@@ -1,6 +1,8 @@
 import asyncio
 from typing import cast
 
+from sqlalchemy.util.langhelpers import repr_tuple_names
+
 from db.exceptions import (
     RedditorAlreadyActiveError,
     RedditorAlreadyInactiveError,
@@ -47,6 +49,7 @@ from telegram_bot.service import (
 import logging
 
 TIME_UNITS = ["hours", "days", "years"]
+TIME = [1, 10, 100]
 
 """Conversation States"""
 # Add redditors conversation
@@ -256,117 +259,102 @@ async def remove_redditor_button(
     return ConversationHandler.END
 
 
-# async def remove_redditors(update: Update, _: ContextTypes.DEFAULT_TYPE) -> int:
-#     """
-#     Step 1: Receiving the Redditors in a str, splitting it and for each Redditor try to remove it from the db.
-#     Respond to User with the Redditors that were removed and those that failed.
-#     """
-#     assert update.message
-#
-#     if not update.message.text:
-#         await update.message.reply_text(
-#             "I need at least one redditor name to continue 🙂"
-#         )
-#         return ASK_FOR_REDDITORS_TO_REMOVE
-#
-#     redditors = update.message.text.split()
-#     removed = []
-#     failed = []
-#
-#     for redditor in redditors:
-#         try:
-#             remove_redditor_from_db(redditor)
-#             removed.append(redditor)
-#
-#         except Exception as e:
-#             failed.append(redditor)
-#
-#     msg = ""
-#
-#     if removed:
-#         msg += f"✅ Removed: \n{'\n'.join(removed)}\n"
-#     if failed:
-#         msg += f"🚨 Failed to remove:\n{'\n'.join(failed)}\n"
-#
-#     await update.message.reply_text(msg)
-#     return ConversationHandler.END
-#
-
-
 async def mute_start(update: Update, _: ContextTypes.DEFAULT_TYPE) -> int:
     """
     Entry Point: Start of /mute Command conversation
     """
     assert update.message
 
-    await update.message.reply_text("Which Redditor do you want to mute?")
+    redditors = list_redditors()
+
+    if not redditors:
+        await update.message.reply_text("No Redditors found in the DB")
+        return ConversationHandler.END
+
+    keyboard = [
+        [InlineKeyboardButton(name, callback_data=f"mute:{name}")] for name in redditors
+    ]
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    await update.message.reply_text(
+        "Which Redditor do you want to mute?", reply_markup=reply_markup
+    )
     return ASK_FOR_REDDITOR_TO_MUTE
 
 
-async def mute_choose_unit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+async def mute_redditor_button(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> int:
     """
     Step 1: Save Redditor to context and get Unit of time from User h/d/y
     """
-    assert update.message
+    query = update.callback_query
+    assert query
+    await query.answer()
+    assert query.data
 
-    if not update.message.text:
-        await update.message.reply_text("I need a redditor name to continue 🙂")
-        return ASK_FOR_REDDITOR_TO_MUTE
-
-    redditor = update.message.text.strip()
+    redditor = query.data.split(":", 1)[1]
 
     if context.user_data is None:
         context.user_data = {}
 
     context.user_data["redditor"] = redditor
 
-    reply_keyboard = [TIME_UNITS]
-    await update.message.reply_text(
-        f"Ok, which unit of time are we using to mute {redditor}?",
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True),
+    keyboard = [
+        [
+            InlineKeyboardButton(unit, callback_data=f"unit:{unit}")
+            for unit in TIME_UNITS
+        ]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await query.edit_message_text(
+        text=f"Ok, which unit of time are we using to mute {redditor}?",
+        reply_markup=reply_markup,
     )
+
     return ASK_FOR_TIME_UNIT
 
 
-async def mute_ask_duration(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+async def mute_unit_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """
     Step 2: Getting the amount of time from User
     """
-    assert update.message
-    assert context.user_data
+    query = update.callback_query
+    assert query
+    await query.answer()
+    assert query.data
 
-    if not update.message.text:
-        await update.message.reply_text("I need a Time Unit to continue 🙂")
-        return ASK_FOR_TIME_UNIT
+    unit = query.data.split(":", 1)[1]
 
-    unit = update.message.text.lower()
+    if context.user_data is None:
+        context.user_data = {}
 
     context.user_data["unit"] = unit
     redditor = context.user_data["redditor"]
 
-    await update.message.reply_text(
+    keyboard = [[InlineKeyboardButton(str(t), callback_data=f"time:{t}") for t in TIME]]
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    await query.edit_message_text(
         f"Ok! How many {unit} do you want to mute {redditor} for?",
-        reply_markup=ReplyKeyboardRemove(),
+        reply_markup=reply_markup,
     )
     return ASK_FOR_DURATION
 
 
-async def mute_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+async def mute_time_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """
     Step 3: Confirm mute of Redditor
     """
-    assert update.message
     assert context.user_data
+    query = update.callback_query
+    assert query
+    await query.answer()
+    assert query.data
 
-    if not update.message.text:
-        await update.message.reply_text("I need an amount of Time to continue")
-        return ASK_FOR_DURATION
-
-    duration_text = update.message.text.strip()
-
-    if not duration_text.isdigit():
-        await update.message.reply_text("Please enter a valid number.")
-        return ASK_FOR_DURATION
+    duration_text = query.data.split(":", 1)[1]
 
     duration = int(duration_text)
     redditor = context.user_data["redditor"]
@@ -374,13 +362,13 @@ async def mute_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 
     try:
         mute_redditor(redditor, unit, duration)
-        await update.message.reply_text(
+        await query.edit_message_text(
             f"{redditor} has been muted for {duration} {unit}"
         )
         return ConversationHandler.END
 
     except Exception as e:
-        await update.message.reply_text("Sorry we have encountered an unexpected Error")
+        await query.edit_message_text("Sorry we have encountered an unexpected Error")
         logger.error("f{e}")
         return ConversationHandler.END
 
@@ -685,32 +673,21 @@ if __name__ == "__main__":
         },
         fallbacks=[CommandHandler("cancel", cancel_conversation)],
     )
-    # remove_conv_handler = ConversationHandler(
-    #     entry_points=[CommandHandler("remove", remove_start)],
-    #     states={
-    #         ASK_FOR_REDDITORS_TO_REMOVE: [
-    #             CommandHandler("cancel", cancel_conversation),
-    #             MessageHandler(filters.TEXT & ~filters.COMMAND, remove_redditors),
-    #         ],
-    #     },
-    #     fallbacks=[CommandHandler("cancel", cancel_conversation)],
-    # )
-    #
-    # Mute Redditor
+
     mute_conv_handler = ConversationHandler(
         entry_points=[CommandHandler("mute", mute_start)],
         states={
             ASK_FOR_REDDITOR_TO_MUTE: [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, mute_choose_unit)
+                CallbackQueryHandler(mute_redditor_button, pattern=r"^mute:")
             ],
             ASK_FOR_TIME_UNIT: [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, mute_ask_duration)
+                CallbackQueryHandler(mute_unit_button, pattern=r"^unit:")
             ],
             ASK_FOR_DURATION: [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, mute_confirm)
+                CallbackQueryHandler(mute_time_button, pattern=r"^time:")
             ],
         },
-        fallbacks=[CommandHandler("cancel", mute_cancel)],
+        fallbacks=[CommandHandler("mute", mute_start)],
     )
 
     # Unmute Redditor
