@@ -1,58 +1,31 @@
 import asyncio
-from operator import call
-import re
-from typing import cast
+import logging
+from typing import Any, cast
 
-from sqlalchemy.orm import query
-from sqlalchemy.util.langhelpers import repr_tuple_names
-
-from db.exceptions import (
-    RedditorAlreadyActiveError,
-    RedditorAlreadyInactiveError,
-    SubredditAlreadyActiveError,
-    SubredditAlreadyInactiveError,
-)
-from telegram import (
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
-    KeyboardButton,
-    ReplyKeyboardMarkup,
-    ReplyKeyboardRemove,
-    Update,
-)
-from telegram.ext import (
-    ApplicationBuilder,
-    CallbackQueryHandler,
-    CommandHandler,
-    ContextTypes,
-    ConversationHandler,
-    MessageHandler,
-    filters,
-)
+from telegram import (CallbackQuery, Chat, InlineKeyboardButton,
+                      InlineKeyboardMarkup, Message, ReplyKeyboardRemove,
+                      Update, User)
+from telegram.ext import (ApplicationBuilder, CallbackQueryHandler,
+                          CommandHandler, ContextTypes, ConversationHandler,
+                          MessageHandler, filters)
 
 from config.config import TELEGRAM_BOT_TOKEN
-from telegram_bot.service import (
-    add_redditor_to_db,
-    add_subreddit_to_db,
-    close_pending_notifications,
-    get_help,
-    get_rating_of_redditor,
-    list_active_telegram_users_chat_ids,
-    list_muted_redditors,
-    list_pending_notifications,
-    list_redditors,
-    list_redditors_with_rating,
-    list_subreddits,
-    list_subreddits_str,
-    mute_redditor,
-    rate_redditor,
-    register_telegram_user,
-    remove_redditor_from_db,
-    remove_subreddit_from_db,
-    unmute_redditor,
-)
-
-import logging
+from db.exceptions import (RedditorAlreadyActiveError,
+                           RedditorAlreadyInactiveError,
+                           SubredditAlreadyActiveError,
+                           SubredditAlreadyInactiveError)
+from telegram_bot.decorators.handler_decorators import Check, require_checks
+from telegram_bot.service import (add_redditor_to_db, add_subreddit_to_db,
+                                  close_pending_notifications, get_help,
+                                  get_rating_of_redditor,
+                                  list_active_telegram_users_chat_ids,
+                                  list_muted_redditors,
+                                  list_pending_notifications, list_redditors,
+                                  list_redditors_with_rating, list_subreddits,
+                                  list_subreddits_str, mute_redditor,
+                                  rate_redditor, register_telegram_user,
+                                  remove_redditor_from_db,
+                                  remove_subreddit_from_db, unmute_redditor)
 
 """InlineKeyboard Buttons"""
 TIME_UNITS = ["hours", "days", "years"]
@@ -89,108 +62,107 @@ logger = logging.getLogger("reddit_watcher.telegram_bot.handlers")
 """GENERAL COMMANDS"""
 
 
+@require_checks([Check.MESSAGE, Check.CHAT, Check.USER])
 async def start(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Telegram Bot Command to add the User to active telegram users in DB.
     """
+    chat: Chat = cast(Chat, update.effective_chat)
+    user: User = cast(User, update.effective_user)
+    message: Message = cast(Message, update.message)
 
-    assert update.message
-    assert update.effective_chat
-    assert update.effective_user
-
-    chat_id = update.effective_chat.id
-    username = update.effective_user.username
+    chat_id = chat.id
+    username = user.username
 
     try:
         msg = register_telegram_user(chat_id, username)
 
     except Exception as e:
-        await update.message.reply_text(
-            "⚠️ Sorry we have encountered an unexpected Error"
-        )
-        logger.error(f"{e}")
+        await message.reply_text("⚠️ Sorry we have encountered an unexpected Error")
+        logger.exception(f"{e}")
         return
 
-    await update.message.reply_text(f"👋 Hello {username or 'there'}!\n{msg}")
+    await message.reply_text(f"👋 Hello {username or 'there'}!\n{msg}")
 
 
+@require_checks([Check.MESSAGE])
 async def help(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Telegram Bot Command to get a list of all available commands.
     """
-    assert update.message
+    message: Message = cast(Message, update.message)
 
     try:
         msg = get_help()
 
     except Exception as e:
-        await update.message.reply_text(
-            "⚠️ Sorry we have encountered an unexpected Error"
-        )
-        logger.error(f"{e}")
+        await message.reply_text("⚠️ Sorry we have encountered an unexpected Error")
+        logger.exception(f"{e}")
         return
 
-    await update.message.reply_text(f"🛠️ Available Bot Commands:\n{msg}")
+    await message.reply_text(f"🛠️ Available Bot Commands:\n{msg}")
 
 
+@require_checks([Check.MESSAGE])
 async def cancel_conversation(update: Update, _: ContextTypes.DEFAULT_TYPE) -> int:
     """
     Telegram Bot Command to cancel any conversation Command
     """
-    assert update.message
+    message: Message = cast(Message, update.message)
 
-    await update.message.reply_text("🚨 Command canceled 🚨")
+    await message.reply_text("🚨 Command canceled 🚨")
     return ConversationHandler.END
 
 
 """REDDITOR COMMANDS"""
 
 
+@require_checks([Check.MESSAGE])
 async def list(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Telegram Bot Command to list all Redditors that are being watched.
     """
-    assert update.message
+    message: Message = cast(Message, update.message)
 
     try:
         msg = list_redditors_with_rating()
 
     except Exception as e:
-        await update.message.reply_text(
-            "⚠️ Sorry we have encountered an unexpected Error"
-        )
-        logger.error(f"{e}")
+        await message.reply_text("⚠️ Sorry we have encountered an unexpected Error")
+        logger.exception(f"{e}")
         return
 
-    await update.message.reply_text(f"📋 Watched Redditors 👀:\n{msg}")
+    await message.reply_text(f"📋 Watched Redditors 👀:\n{msg}")
 
 
+@require_checks([Check.MESSAGE])
 async def add_start(update: Update, _: ContextTypes.DEFAULT_TYPE) -> int:
     """
     Entry Point: Start of the /add Command conversation
     """
-    assert update.message
-    await update.message.reply_text(
+    message: Message = cast(Message, update.message)
+
+    await message.reply_text(
         "Who do you want to add?\nSend me a list of redditors separated by spaces.\nRedditor1 Redditor2 Redditor3"
     )
 
     return ASK_FOR_REDDITORS_TO_ADD
 
 
+@require_checks([Check.MESSAGE])
 async def add_redditors(update: Update, _: ContextTypes.DEFAULT_TYPE) -> int:
     """
     Step 1: Receiving the Redditors in a str, splitting it and for each Redditor try to add it to the db.
     Respond to User with the Redditors that were added and those that failed.
     """
-    assert update.message
+    message: Message = cast(Message, update.message)
 
-    if not update.message.text:
-        await update.message.reply_text(
-            "I need at least one redditor name to continue 🙂"
-        )
+    if not message.text:
+        await message.reply_text("I need at least one redditor name to continue 🙂")
+
         return ASK_FOR_REDDITORS_TO_ADD
 
-    redditors = update.message.text.split()
+    redditors = message.text.split()
     added = []
     failed = []
 
@@ -198,34 +170,39 @@ async def add_redditors(update: Update, _: ContextTypes.DEFAULT_TYPE) -> int:
         try:
             await add_redditor_to_db(redditor)
             added.append(redditor)
+
         except RedditorAlreadyActiveError as e:
             added.append(redditor)
             logger.info(f"{e}")
+
         except Exception as e:
             failed.append(redditor)
-            logger.error(f"{e}")
+            logger.exception(f"{e}")
 
     msg = ""
 
     if added:
         msg += f"✅ Added:\n{'\n'.join(added)}\n"
+
     if failed:
         msg += f"🚨 Failed to add:\n{'\n'.join(failed)}\n"
 
-    await update.message.reply_text(msg)
+    await message.reply_text(msg)
+
     return ConversationHandler.END
 
 
+@require_checks([Check.MESSAGE])
 async def remove_start(update: Update, _: ContextTypes.DEFAULT_TYPE) -> int:
     """
     Entry Point: Start of the /remove Command conversation
     """
-    assert update.message
+    message: Message = cast(Message, update.message)
 
     redditors = list_redditors()
 
     if not redditors:
-        await update.message.reply_text("No Redditors found in the DB")
+        await message.reply_text("No Redditors found in the DB")
         return ConversationHandler.END
 
     keyboard = [
@@ -235,22 +212,23 @@ async def remove_start(update: Update, _: ContextTypes.DEFAULT_TYPE) -> int:
 
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    await update.message.reply_text(
-        "Who do you want to remove?", reply_markup=reply_markup
-    )
+    await message.reply_text("Who do you want to remove?", reply_markup=reply_markup)
+
     return ASK_FOR_REDDITORS_TO_REMOVE
 
 
+@require_checks([Check.CALLBACK_QUERY])
 async def remove_redditor_button(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> int:
     """
     Handles when a redditor button is pressed.
     """
-    query = update.callback_query
-    assert query
+    query: CallbackQuery = cast(CallbackQuery, update.callback_query)
     await query.answer()
-    assert query.data
+
+    if query.data is None:
+        return ConversationHandler.END
 
     redditor = query.data.split(":", 1)[1]
 
@@ -267,16 +245,17 @@ async def remove_redditor_button(
     return ConversationHandler.END
 
 
+@require_checks([Check.MESSAGE])
 async def mute_start(update: Update, _: ContextTypes.DEFAULT_TYPE) -> int:
     """
     Entry Point: Start of /mute Command conversation
     """
-    assert update.message
+    message: Message = cast(Message, update.message)
 
     redditors = list_redditors()
 
     if not redditors:
-        await update.message.reply_text("No Redditors found in the DB")
+        await message.reply_text("No Redditors found in the DB")
         return ConversationHandler.END
 
     keyboard = [
@@ -285,29 +264,31 @@ async def mute_start(update: Update, _: ContextTypes.DEFAULT_TYPE) -> int:
 
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    await update.message.reply_text(
+    await message.reply_text(
         "Which Redditor do you want to mute?", reply_markup=reply_markup
     )
+
     return ASK_FOR_REDDITOR_TO_MUTE
 
 
+@require_checks([Check.CALLBACK_QUERY, Check.USER_DATA])
 async def mute_redditor_button(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> int:
     """
     Step 1: Save Redditor to context and get Unit of time from User h/d/y
     """
-    query = update.callback_query
-    assert query
+    query: CallbackQuery = cast(CallbackQuery, update.callback_query)
     await query.answer()
-    assert query.data
+
+    if query.data is None:
+        return ConversationHandler.END
 
     redditor = query.data.split(":", 1)[1]
 
-    if context.user_data is None:
-        context.user_data = {}
+    user_data: dict[Any, Any] = cast(dict[Any, Any], context.user_data)
 
-    context.user_data["redditor"] = redditor
+    user_data["redditor"] = redditor
 
     keyboard = [
         [
@@ -315,7 +296,9 @@ async def mute_redditor_button(
             for unit in TIME_UNITS
         ]
     ]
+
     reply_markup = InlineKeyboardMarkup(keyboard)
+
     await query.edit_message_text(
         text=f"Ok, which unit of time are we using to mute {redditor}?",
         reply_markup=reply_markup,
@@ -324,22 +307,23 @@ async def mute_redditor_button(
     return ASK_FOR_TIME_UNIT
 
 
+@require_checks([Check.CALLBACK_QUERY, Check.USER_DATA])
 async def mute_unit_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """
     Step 2: Getting the amount of time from User
     """
-    query = update.callback_query
-    assert query
+    query: CallbackQuery = cast(CallbackQuery, update.callback_query)
     await query.answer()
-    assert query.data
+
+    if query.data is None:
+        return ConversationHandler.END
 
     unit = query.data.split(":", 1)[1]
 
-    if context.user_data is None:
-        context.user_data = {}
+    user_data: dict[Any, Any] = cast(dict[Any, Any], context.user_data)
 
-    context.user_data["unit"] = unit
-    redditor = context.user_data["redditor"]
+    user_data["unit"] = unit
+    redditor = user_data["redditor"]
 
     keyboard = [[InlineKeyboardButton(str(t), callback_data=f"time:{t}") for t in TIME]]
 
@@ -349,60 +333,78 @@ async def mute_unit_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         f"Ok! How many {unit} do you want to mute {redditor} for?",
         reply_markup=reply_markup,
     )
+
     return ASK_FOR_DURATION
 
 
+@require_checks([Check.CALLBACK_QUERY, Check.USER_DATA])
 async def mute_time_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """
     Step 3: Confirm mute of Redditor
     """
-    assert context.user_data
-    query = update.callback_query
-    assert query
+    query: CallbackQuery = cast(CallbackQuery, update.callback_query)
     await query.answer()
     assert query.data
 
+    if query.data is None:
+        return ConversationHandler.END
+
     duration_text = query.data.split(":", 1)[1]
 
+    user_data: dict[Any, Any] = cast(dict[Any, Any], context.user_data)
+
     duration = int(duration_text)
-    redditor = context.user_data["redditor"]
-    unit = context.user_data["unit"]
+    redditor = user_data["redditor"]
+    unit = user_data["unit"]
 
     try:
         mute_redditor(redditor, unit, duration)
+
         await query.edit_message_text(
             f"{redditor} has been muted for {duration} {unit}"
         )
+
         return ConversationHandler.END
 
     except Exception as e:
         await query.edit_message_text("Sorry we have encountered an unexpected Error")
-        logger.error("f{e}")
+        logger.exception(f"{e}")
+
         return ConversationHandler.END
 
 
+@require_checks([Check.MESSAGE])
 async def mute_cancel(update: Update, _: ContextTypes.DEFAULT_TYPE) -> int:
     """
     User cancels and we remove any replykeayboard
     """
-    assert update.message
+    message: Message = cast(Message, update.message)
 
-    await update.message.reply_text(
+    await message.reply_text(
         "Mute Command cancelled.", reply_markup=ReplyKeyboardRemove()
     )
+
     return ConversationHandler.END
 
 
+@require_checks([Check.MESSAGE])
 async def unmute_start(update: Update, _: ContextTypes.DEFAULT_TYPE) -> int:
     """
     Entry Point: Start of the /unmute Command conversation
     """
-    assert update.message
+    message: Message = cast(Message, update.message)
 
-    muted_redditors = list_muted_redditors()
+    try:
+        muted_redditors = list_muted_redditors()
+
+    except Exception as e:
+        logger.exception(f"{e}")
+
+        return ConversationHandler.END
 
     if not muted_redditors:
-        await update.message.reply_text("No muted Redditors found in the DB")
+        await message.reply_text("No muted Redditors found in the DB")
+
         return ConversationHandler.END
 
     keyboard = [
@@ -412,44 +414,50 @@ async def unmute_start(update: Update, _: ContextTypes.DEFAULT_TYPE) -> int:
 
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    await update.message.reply_text(
+    await message.reply_text(
         "Which Redditor do you want to unmute?", reply_markup=reply_markup
     )
 
     return ASK_FOR_REDDITOR_TO_UNMUTE
 
 
+@require_checks([Check.CALLBACK_QUERY])
 async def unmute_redditor_button(update: Update, _: ContextTypes.DEFAULT_TYPE) -> int:
     """
     Step 1: Receiving Redditor to unmute and unmute it.
     """
-    query = update.callback_query
-    assert query
+    query: CallbackQuery = cast(CallbackQuery, update.callback_query)
     await query.answer()
-    assert query.data
+
+    if query.data is None:
+        return ConversationHandler.END
 
     redditor = query.data.split(":", 1)[1]
 
     try:
         unmute_redditor(redditor)
         await query.edit_message_text(f"{redditor} unmuted")
+
         return ConversationHandler.END
+
     except Exception as e:
         await query.edit_message_text("Sorry we have encountered an unexpected Error")
-        logger.error(f"{e}")
+        logger.exception(f"{e}")
+
         return ConversationHandler.END
 
 
+@require_checks([Check.MESSAGE])
 async def rate_start(update: Update, _: ContextTypes.DEFAULT_TYPE) -> int:
     """
     Entry Point: Start of /rate Command conversation
     """
-    assert update.message
+    message: Message = cast(Message, update.message)
 
     redditors = list_redditors()
 
     if not redditors:
-        await update.message.reply_text("Sry No Redditors found in DB")
+        await message.reply_text("Sry No Redditors found in DB")
 
     keyboard = [
         [
@@ -457,29 +465,34 @@ async def rate_start(update: Update, _: ContextTypes.DEFAULT_TYPE) -> int:
             for username in redditors
         ]
     ]
+
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text(
+
+    await message.reply_text(
         "Which Redditors rating do you want to change?", reply_markup=reply_markup
     )
 
     return ASK_FOR_REDDITOR_TO_RATE
 
 
+@require_checks([Check.CALLBACK_QUERY, Check.USER_DATA])
 async def rate_redditor_button(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> int:
     """
     Step 1: Save Redditor to context and getting an amount for the rating change
     """
-    query = update.callback_query
-    assert query
+    query: CallbackQuery = cast(CallbackQuery, update.callback_query)
     await query.answer()
-    assert query.data
-    assert context.user_data
+
+    if query.data is None:
+        return ConversationHandler.END
+
+    user_data: dict[Any, Any] = cast(dict[Any, Any], context.user_data)
 
     redditor = query.data.split(":", 1)[1]
 
-    context.user_data["redditor"] = redditor
+    user_data["redditor"] = redditor
 
     keybord = [
         [
@@ -498,22 +511,24 @@ async def rate_redditor_button(
         f"OK by how much do you want to change the rating of {redditor}",
         reply_markup=reply_markup,
     )
+
     return ASK_FOR_AMOUNT_TO_RATE
 
 
+@require_checks([Check.CALLBACK_QUERY, Check.USER_DATA])
 async def rate_rating_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """
     Step 2: Receive the amount for the rating change and changing the rating of specified redditor
     """
-    query = update.callback_query
-    assert query
+    query: CallbackQuery = cast(CallbackQuery, update.callback_query)
     await query.answer()
-    assert query.data
 
-    if not context.user_data:
-        context.user_data = {}
+    if query.data is None:
+        return ConversationHandler.END
 
-    redditor = context.user_data["redditor"]
+    user_data: dict[Any, Any] = cast(dict[Any, Any], context.user_data)
+
+    redditor = user_data["redditor"]
 
     rating_text = query.data.split(":", 1)[1]
 
@@ -522,60 +537,65 @@ async def rate_rating_button(update: Update, context: ContextTypes.DEFAULT_TYPE)
     try:
         rate_redditor(redditor, rating)
         await query.edit_message_text(f"Changed rating of {redditor} by {rating}")
+
         return ConversationHandler.END
+
     except Exception as e:
         await query.edit_message_text("Sorry we have encountered an unexpected Error")
-        logger.error(f"{e}")
+        logger.exception(f"{e}")
+
         return ConversationHandler.END
 
 
 """SUBREDDIT COMMANDS"""
 
 
+@require_checks([Check.MESSAGE])
 async def listsubs(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Telegram Bot Command to list Subreddits that are being watched.
     """
-    assert update.message
+    message: Message = cast(Message, update.message)
 
     try:
         msg = list_subreddits_str()
 
     except Exception as e:
-        await update.message.reply_text(
-            "⚠️ Sorry we have encountered an unexpected Error"
-        )
-        logger.error(f"{e}")
+        await message.reply_text("⚠️ Sorry we have encountered an unexpected Error")
+        logger.exception(f"{e}")
+
         return
 
-    await update.message.reply_text(f"📋 Watched Subreddits👀:\n{msg}")
+    await message.reply_text(f"📋 Watched Subreddits👀:\n{msg}")
 
 
+@require_checks([Check.MESSAGE])
 async def addsubs_start(update: Update, _: ContextTypes.DEFAULT_TYPE) -> int:
     """
     Entry Point: Start of the /addsubs Command conversation
     """
-    assert update.message
+    message: Message = cast(Message, update.message)
 
-    await update.message.reply_text(
+    await message.reply_text(
         "Which Subreddits do you want to add?\nSend me a list of Subreddits separated by spaces.\nSubreddit1 Subreddit2 Subreddit3"
     )
 
     return ASK_FOR_SUBREDDITS_TO_ADD
 
 
+@require_checks([Check.MESSAGE])
 async def add_subreddits(update: Update, _: ContextTypes.DEFAULT_TYPE) -> int:
     """
     Step 1: Receiving the SUbreddits in a str, splitting it and for each Subreddit try to add it to the db.
     Respond to User with the Subreddits that were added and those that failed.
     """
-    assert update.message
+    message: Message = cast(Message, update.message)
 
-    if not update.message.text:
-        await update.message.reply_text("I need at least one subreddit to continue 🙂")
+    if not message.text:
+        await message.reply_text("I need at least one subreddit to continue 🙂")
         return ASK_FOR_SUBREDDITS_TO_ADD
 
-    subreddits = update.message.text.split()
+    subreddits = message.text.split()
     added = []
     failed = []
 
@@ -590,7 +610,7 @@ async def add_subreddits(update: Update, _: ContextTypes.DEFAULT_TYPE) -> int:
 
         except Exception as e:
             failed.append(sub)
-            logger.error(f"{e}")
+            logger.exception(f"{e}")
 
     msg = ""
 
@@ -599,16 +619,19 @@ async def add_subreddits(update: Update, _: ContextTypes.DEFAULT_TYPE) -> int:
     if failed:
         msg += f"🚨 Failed to add:\n{'\n'.join(failed)}\n"
 
-    await update.message.reply_text(msg)
+    await message.reply_text(msg)
     return ConversationHandler.END
 
 
+@require_checks([Check.MESSAGE])
 async def removesubs_start(update: Update, _: ContextTypes.DEFAULT_TYPE) -> int:
     """
     Entry Point: Start of the /removesubs Command conversation
     """
-    assert update.message
+    message: Message = cast(Message, update.message)
+
     subs = list_subreddits()
+
     keyboard = [
         [
             InlineKeyboardButton(f"{sub}", callback_data=f"removesub:{sub}")
@@ -618,30 +641,34 @@ async def removesubs_start(update: Update, _: ContextTypes.DEFAULT_TYPE) -> int:
 
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    await update.message.reply_text(
+    await message.reply_text(
         "Which Subreddit do you want to remove?\nSend me a list of redditors separated by spaces.\nSubreddit1 Subreddit2 Subreddit3",
         reply_markup=reply_markup,
     )
+
     return ASK_FOR_SUBREDDITS_TO_REMOVE
 
 
+@require_checks([Check.CALLBACK_QUERY])
 async def remove_subreddit_button(update: Update, _: ContextTypes.DEFAULT_TYPE) -> int:
     """
     Step 1: Receiving the Subreddits in a str, splitting it and for each Subreddit try to remove it from the db.
     Respond to User with the Subreddits that were removed and those that failed.
     """
-    query = update.callback_query
-    assert query
+    query: CallbackQuery = cast(CallbackQuery, update.callback_query)
     await query.answer()
-    assert query.data
+
+    if query.data is None:
+        return ConversationHandler.END
 
     subreddit = query.data.split(":", 1)[1]
 
     try:
         remove_subreddit_from_db(subreddit)
         await query.edit_message_text(f"{subreddit} removed")
+
     except Exception as e:
-        logger.error(f"{e}")
+        logger.exception(f"{e}")
 
     return ConversationHandler.END
 
@@ -662,7 +689,7 @@ async def send_pending_notifications(bot) -> None:
                 rating = get_rating_of_redditor(cast(str, note.author))
 
             except Exception as e:
-                logger.error(f"{e}")
+                logger.exception(f"{e}")
                 continue
 
             message = f"📢 New {note.type} by {note.author}{'🚀' * rating}\n{note.url}"
@@ -673,14 +700,14 @@ async def send_pending_notifications(bot) -> None:
                     logger.info(f"Sent message to {chat_id}")
 
                 except Exception as e:
-                    logger.error(f"Failed to send to {chat_id}: {e}")
+                    logger.exception(f"Failed to send to {chat_id}: {e}")
             notification_ids.append(note.id)
 
         try:
             close_pending_notifications(notification_ids)
             notification_ids = []
         except Exception as e:
-            logger.error(f"{e}")
+            logger.exception(f"{e}")
         await asyncio.sleep(5)
 
 
@@ -699,6 +726,7 @@ if __name__ == "__main__":
 
     # Add Redditors
     add_conv_handler = ConversationHandler(
+        per_chat=True,
         entry_points=[CommandHandler("add", add_start)],
         states={
             ASK_FOR_REDDITORS_TO_ADD: [
@@ -711,6 +739,7 @@ if __name__ == "__main__":
 
     # Remove Redditors
     remove_conv_handler = ConversationHandler(
+        per_chat=True,
         entry_points=[CommandHandler("remove", remove_start)],
         states={
             ASK_FOR_REDDITORS_TO_REMOVE: [
@@ -721,6 +750,7 @@ if __name__ == "__main__":
     )
 
     mute_conv_handler = ConversationHandler(
+        per_chat=True,
         entry_points=[CommandHandler("mute", mute_start)],
         states={
             ASK_FOR_REDDITOR_TO_MUTE: [
@@ -738,6 +768,7 @@ if __name__ == "__main__":
 
     # Unmute Redditor
     unmute_conv_handler = ConversationHandler(
+        per_chat=True,
         entry_points=[CommandHandler("unmute", unmute_start)],
         states={
             ASK_FOR_REDDITOR_TO_UNMUTE: [
@@ -749,6 +780,7 @@ if __name__ == "__main__":
 
     # Rate Redditor
     rate_conv_handler = ConversationHandler(
+        per_chat=True,
         entry_points=[CommandHandler("rate", rate_start)],
         states={
             ASK_FOR_REDDITOR_TO_RATE: [
@@ -763,6 +795,7 @@ if __name__ == "__main__":
 
     # Add Subreddits
     addsub_conv_handler = ConversationHandler(
+        per_chat=True,
         entry_points=[CommandHandler("addsub", addsubs_start)],
         states={
             ASK_FOR_SUBREDDITS_TO_ADD: [
@@ -774,6 +807,7 @@ if __name__ == "__main__":
 
     # Remove Subreddits
     rmsub_conv_handler = ConversationHandler(
+        per_chat=True,
         entry_points=[CommandHandler("rmsub", removesubs_start)],
         states={
             ASK_FOR_SUBREDDITS_TO_REMOVE: [

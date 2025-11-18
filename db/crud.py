@@ -4,17 +4,14 @@ from praw.models import Comment, Submission
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
-from .exceptions import (
-    RedditorAlreadyActiveError,
-    RedditorAlreadyInactiveError,
-    RedditorAlreadyMutedError,
-    RedditorDoesNotExistError,
-    RedditorNotFoundInDBError,
-    SubredditAlreadyActiveError,
-    SubredditAlreadyInactiveError,
-    SubredditNotFoundError,
-)
-from .models import Notification, TelegramUser, WatchedRedditor, WatchedSubreddit
+from .exceptions import (RedditorAlreadyActiveError,
+                         RedditorAlreadyInactiveError,
+                         RedditorAlreadyMutedError, RedditorDoesNotExistError,
+                         RedditorNotFoundInDBError,
+                         SubredditAlreadyActiveError,
+                         SubredditAlreadyInactiveError, SubredditNotFoundError)
+from .models import (Notification, TelegramUser, WatchedRedditor,
+                     WatchedSubreddit)
 
 
 def safe_commit(session: Session, retries: int = 3, delay: float = 0.5) -> None:

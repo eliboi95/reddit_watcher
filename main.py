@@ -1,15 +1,14 @@
+import logging
 import os
 import signal
 import subprocess
 import sys
 import time
 import types
-from typing import Optional
-import logging
 from logging.handlers import RotatingFileHandler
+from typing import Optional
 
 from db.session import init_db  # ensure db creation
-
 
 logger = logging.getLogger("reddit_watcher")
 
