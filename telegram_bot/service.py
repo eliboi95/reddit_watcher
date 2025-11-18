@@ -1,13 +1,24 @@
 import asyncio
 
-from db.crud import (add_telegram_user, add_watched_redditor,
-                     add_watched_subreddit, get_active_telegram_users_chat_ids,
-                     get_pending_notifications, get_rating,
-                     get_watched_redditors, get_watched_redditors_with_rating,
-                     get_watched_subreddits, mark_notifications_not_pending,
-                     remove_watched_redditor, remove_watched_subreddit,
-                     set_redditor_mute_timer, set_redditor_rating,
-                     unset_redditor_mute_timer)
+from db import session
+from db.crud import (
+    add_telegram_user,
+    add_watched_redditor,
+    add_watched_subreddit,
+    get_active_telegram_users_chat_ids,
+    get_muted_watched_redditors,
+    get_pending_notifications,
+    get_rating,
+    get_watched_redditors,
+    get_watched_redditors_with_rating,
+    get_watched_subreddits,
+    mark_notifications_not_pending,
+    remove_watched_redditor,
+    remove_watched_subreddit,
+    set_redditor_mute_timer,
+    set_redditor_rating,
+    unset_redditor_mute_timer,
+)
 from db.exceptions import RedditorDoesNotExistError, SubredditDoesNotExistError
 from db.models import Notification
 from db.session import SessionLocal
@@ -77,8 +88,24 @@ def list_redditors_with_rating() -> str:
     try:
         list_of_redditors = get_watched_redditors_with_rating(session)
         return "\n".join(
-            [f"{username} {rating * '🚀'}" for username, rating in list_of_redditors]
+            [
+                f"{username} {(rating * '🚀') if rating >= 0 else (abs(rating) * '👎')}"
+                for username, rating in list_of_redditors
+            ]
         )
+
+    finally:
+        session.close()
+
+
+def list_muted_redditors() -> list[str]:
+    """
+    Returns a List of all currently muted Redditors
+    """
+    session = SessionLocal()
+
+    try:
+        return get_muted_watched_redditors(session)
 
     finally:
         session.close()
@@ -189,9 +216,9 @@ def get_rating_of_redditor(username: str) -> int:
 """SUBREDDIT COMMANDS"""
 
 
-def list_subreddits() -> str:
+def list_subreddits_str() -> str:
     """
-    Returns a list in form of a string of all watched Subreddits.
+    Returns a string of all watched Subreddits.
 
     Handles Session management around `get_watched_subreddits`.
     """
@@ -200,6 +227,20 @@ def list_subreddits() -> str:
     try:
         return "\n".join([subreddit for subreddit in get_watched_subreddits(session)])
 
+    finally:
+        session.close()
+
+
+def list_subreddits() -> list[str]:
+    """
+    Returns a list of all watched Subreddits.
+
+    Handles Session management around `get_watched_subreddits`.
+    """
+    session = SessionLocal()
+
+    try:
+        return get_watched_subreddits(session)
     finally:
         session.close()
 

@@ -1,6 +1,9 @@
 import asyncio
+from operator import call
+import re
 from typing import cast
 
+from sqlalchemy.orm import query
 from sqlalchemy.util.langhelpers import repr_tuple_names
 
 from db.exceptions import (
@@ -12,6 +15,7 @@ from db.exceptions import (
 from telegram import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
+    KeyboardButton,
     ReplyKeyboardMarkup,
     ReplyKeyboardRemove,
     Update,
@@ -34,10 +38,12 @@ from telegram_bot.service import (
     get_help,
     get_rating_of_redditor,
     list_active_telegram_users_chat_ids,
+    list_muted_redditors,
     list_pending_notifications,
     list_redditors,
     list_redditors_with_rating,
     list_subreddits,
+    list_subreddits_str,
     mute_redditor,
     rate_redditor,
     register_telegram_user,
@@ -48,8 +54,10 @@ from telegram_bot.service import (
 
 import logging
 
+"""InlineKeyboard Buttons"""
 TIME_UNITS = ["hours", "days", "years"]
 TIME = [1, 10, 100]
+RATING = [-5, -4, -3, -2, -1, 1, 2, 3, 4, 5]
 
 """Conversation States"""
 # Add redditors conversation
@@ -390,29 +398,44 @@ async def unmute_start(update: Update, _: ContextTypes.DEFAULT_TYPE) -> int:
     Entry Point: Start of the /unmute Command conversation
     """
     assert update.message
-    await update.message.reply_text("Who do you want to unmute?")
+
+    muted_redditors = list_muted_redditors()
+
+    if not muted_redditors:
+        await update.message.reply_text("No muted Redditors found in the DB")
+        return ConversationHandler.END
+
+    keyboard = [
+        [InlineKeyboardButton(name, callback_data=f"unmute:{name}")]
+        for name in muted_redditors
+    ]
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    await update.message.reply_text(
+        "Which Redditor do you want to unmute?", reply_markup=reply_markup
+    )
 
     return ASK_FOR_REDDITOR_TO_UNMUTE
 
 
-async def unmute_confirm(update: Update, _: ContextTypes.DEFAULT_TYPE) -> int:
+async def unmute_redditor_button(update: Update, _: ContextTypes.DEFAULT_TYPE) -> int:
     """
     Step 1: Receiving Redditor to unmute and unmute it.
     """
-    assert update.message
+    query = update.callback_query
+    assert query
+    await query.answer()
+    assert query.data
 
-    if not update.message.text:
-        await update.message.reply_text("I need a redditor name to continue")
-        return ASK_FOR_REDDITOR_TO_UNMUTE
-
-    redditor = update.message.text.strip()
+    redditor = query.data.split(":", 1)[1]
 
     try:
         unmute_redditor(redditor)
-        await update.message.reply_text(f"{redditor} unmuted")
+        await query.edit_message_text(f"{redditor} unmuted")
         return ConversationHandler.END
     except Exception as e:
-        await update.message.reply_text("Sorry we have encountered an unexpected Error")
+        await query.edit_message_text("Sorry we have encountered an unexpected Error")
         logger.error(f"{e}")
         return ConversationHandler.END
 
@@ -422,57 +445,86 @@ async def rate_start(update: Update, _: ContextTypes.DEFAULT_TYPE) -> int:
     Entry Point: Start of /rate Command conversation
     """
     assert update.message
-    await update.message.reply_text("Which Redditors rating do you want to change?")
+
+    redditors = list_redditors()
+
+    if not redditors:
+        await update.message.reply_text("Sry No Redditors found in DB")
+
+    keyboard = [
+        [
+            InlineKeyboardButton(text=f"{username}", callback_data=f"rate:{username}")
+            for username in redditors
+        ]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text(
+        "Which Redditors rating do you want to change?", reply_markup=reply_markup
+    )
 
     return ASK_FOR_REDDITOR_TO_RATE
 
 
-async def rate_ask_amount(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+async def rate_redditor_button(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> int:
     """
     Step 1: Save Redditor to context and getting an amount for the rating change
     """
-    assert update.message
+    query = update.callback_query
+    assert query
+    await query.answer()
+    assert query.data
+    assert context.user_data
 
-    if not update.message.text:
-        await update.message.reply_text("I need a redditor name to continue 🙂")
-        return ASK_FOR_REDDITOR_TO_RATE
+    redditor = query.data.split(":", 1)[1]
 
-    redditor = update.message.text.strip()
     context.user_data["redditor"] = redditor
 
-    await update.message.reply_text(
-        f"OK by how much do you want to change the rating of {redditor}"
+    keybord = [
+        [
+            InlineKeyboardButton(text=f"{rating}", callback_data=f"rating:{rating}")
+            for rating in RATING[:5]
+        ],
+        [
+            InlineKeyboardButton(text=f"{rating}", callback_data=f"rating:{rating}")
+            for rating in RATING[5:]
+        ],
+    ]
+
+    reply_markup = InlineKeyboardMarkup(keybord)
+
+    await query.edit_message_text(
+        f"OK by how much do you want to change the rating of {redditor}",
+        reply_markup=reply_markup,
     )
     return ASK_FOR_AMOUNT_TO_RATE
 
 
-async def rate_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+async def rate_rating_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """
     Step 2: Receive the amount for the rating change and changing the rating of specified redditor
     """
-    assert context.user_data
-    assert update.message
+    query = update.callback_query
+    assert query
+    await query.answer()
+    assert query.data
 
-    if not update.message.text:
-        await update.message.reply_text("I need an amount to continue 🙂")
-        return ASK_FOR_AMOUNT_TO_RATE
-
-    rating_text = update.message.text.strip()
-
-    try:
-        rating = int(rating_text)
-    except ValueError as e:
-        await update.message.reply_text("I need a valid number 🙂")
-        logger.warning(f"{e}")
-        return ASK_FOR_AMOUNT_TO_RATE
+    if not context.user_data:
+        context.user_data = {}
 
     redditor = context.user_data["redditor"]
+
+    rating_text = query.data.split(":", 1)[1]
+
+    rating = int(rating_text)
+
     try:
         rate_redditor(redditor, rating)
-        await update.message.reply_text(f"Changed rating of {redditor} by {rating}")
+        await query.edit_message_text(f"Changed rating of {redditor} by {rating}")
         return ConversationHandler.END
     except Exception as e:
-        await update.message.reply_text("Sorry we have encountered an unexpected Error")
+        await query.edit_message_text("Sorry we have encountered an unexpected Error")
         logger.error(f"{e}")
         return ConversationHandler.END
 
@@ -487,7 +539,7 @@ async def listsubs(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     assert update.message
 
     try:
-        msg = list_subreddits()
+        msg = list_subreddits_str()
 
     except Exception as e:
         await update.message.reply_text(
@@ -556,47 +608,41 @@ async def removesubs_start(update: Update, _: ContextTypes.DEFAULT_TYPE) -> int:
     Entry Point: Start of the /removesubs Command conversation
     """
     assert update.message
+    subs = list_subreddits()
+    keyboard = [
+        [
+            InlineKeyboardButton(f"{sub}", callback_data=f"removesub:{sub}")
+            for sub in subs
+        ]
+    ]
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
 
     await update.message.reply_text(
-        "Which Subreddit do you want to remove?\nSend me a list of redditors separated by spaces.\nSubreddit1 Subreddit2 Subreddit3"
+        "Which Subreddit do you want to remove?\nSend me a list of redditors separated by spaces.\nSubreddit1 Subreddit2 Subreddit3",
+        reply_markup=reply_markup,
     )
     return ASK_FOR_SUBREDDITS_TO_REMOVE
 
 
-async def remove_subreddits(update: Update, _: ContextTypes.DEFAULT_TYPE) -> int:
+async def remove_subreddit_button(update: Update, _: ContextTypes.DEFAULT_TYPE) -> int:
     """
     Step 1: Receiving the Subreddits in a str, splitting it and for each Subreddit try to remove it from the db.
     Respond to User with the Subreddits that were removed and those that failed.
     """
-    assert update.message
+    query = update.callback_query
+    assert query
+    await query.answer()
+    assert query.data
 
-    if not update.message.text:
-        await update.message.reply_text("I need at least one subreddit to continue 🙂")
-        return ASK_FOR_SUBREDDITS_TO_REMOVE
+    subreddit = query.data.split(":", 1)[1]
 
-    subreddits = update.message.text.split()
-    removed = []
-    failed = []
+    try:
+        remove_subreddit_from_db(subreddit)
+        await query.edit_message_text(f"{subreddit} removed")
+    except Exception as e:
+        logger.error(f"{e}")
 
-    for sub in subreddits:
-        try:
-            remove_subreddit_from_db(sub)
-            removed.append(sub)
-        except SubredditAlreadyInactiveError as e:
-            removed.append(sub)
-            logger.info(f"{e}")
-        except Exception as e:
-            failed.append(sub)
-            logger.error(f"{e}")
-
-    msg = ""
-
-    if removed:
-        msg += f"✅ Removed: \n{'\n'.join(removed)}\n"
-    if failed:
-        msg += f"🚨 Failed to remove:\n{'\n'.join(failed)}\n"
-
-    await update.message.reply_text(msg)
     return ConversationHandler.END
 
 
@@ -695,10 +741,10 @@ if __name__ == "__main__":
         entry_points=[CommandHandler("unmute", unmute_start)],
         states={
             ASK_FOR_REDDITOR_TO_UNMUTE: [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, unmute_confirm)
+                CallbackQueryHandler(unmute_redditor_button, pattern=r"^unmute:")
             ],
         },
-        fallbacks=[CommandHandler("cancel", cancel_conversation)],
+        fallbacks=[CommandHandler("unmute", unmute_start)],
     )
 
     # Rate Redditor
@@ -706,13 +752,13 @@ if __name__ == "__main__":
         entry_points=[CommandHandler("rate", rate_start)],
         states={
             ASK_FOR_REDDITOR_TO_RATE: [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, rate_ask_amount)
+                CallbackQueryHandler(rate_redditor_button, pattern="^rate:")
             ],
             ASK_FOR_AMOUNT_TO_RATE: [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, rate_confirm)
+                CallbackQueryHandler(rate_rating_button, pattern="^rating:")
             ],
         },
-        fallbacks=[CommandHandler("cancel", cancel_conversation)],
+        fallbacks=[CommandHandler("rate", rate_start)],
     )
 
     # Add Subreddits
@@ -731,10 +777,10 @@ if __name__ == "__main__":
         entry_points=[CommandHandler("rmsub", removesubs_start)],
         states={
             ASK_FOR_SUBREDDITS_TO_REMOVE: [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, remove_subreddits)
+                CallbackQueryHandler(remove_subreddit_button, pattern=r"^removesub:")
             ],
         },
-        fallbacks=[CommandHandler("cancel", cancel_conversation)],
+        fallbacks=[CommandHandler("rmsub", removesubs_start)],
     )
 
     # --- Register all handlers ---

@@ -4,14 +4,17 @@ from praw.models import Comment, Submission
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
-from .exceptions import (RedditorAlreadyActiveError,
-                         RedditorAlreadyInactiveError,
-                         RedditorAlreadyMutedError, RedditorDoesNotExistError,
-                         RedditorNotFoundInDBError,
-                         SubredditAlreadyActiveError,
-                         SubredditAlreadyInactiveError, SubredditNotFoundError)
-from .models import (Notification, TelegramUser, WatchedRedditor,
-                     WatchedSubreddit)
+from .exceptions import (
+    RedditorAlreadyActiveError,
+    RedditorAlreadyInactiveError,
+    RedditorAlreadyMutedError,
+    RedditorDoesNotExistError,
+    RedditorNotFoundInDBError,
+    SubredditAlreadyActiveError,
+    SubredditAlreadyInactiveError,
+    SubredditNotFoundError,
+)
+from .models import Notification, TelegramUser, WatchedRedditor, WatchedSubreddit
 
 
 def safe_commit(session: Session, retries: int = 3, delay: float = 0.5) -> None:
@@ -113,6 +116,18 @@ def get_watched_redditors_with_rating(session: Session) -> list[tuple[str, int]]
         (row.username, row.rating)
         for row in session.query(WatchedRedditor).filter_by(active=True).all()
     ]
+
+
+def get_muted_watched_redditors(session: Session) -> list[str]:
+    """
+    Gets all the redditors that are currently muted
+    """
+    redditors = [row.username for row in session.query(WatchedRedditor).all()]
+    muted_redditors = [
+        redditor for redditor in redditors if is_muted(session, redditor)
+    ]
+
+    return muted_redditors
 
 
 def add_watched_redditor(session: Session, username: str) -> None:
