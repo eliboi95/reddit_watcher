@@ -3,37 +3,55 @@ DEFINING CUSTOM EXCEPTIONS
 """
 
 
-class RedditorDoesNotExistError(Exception):
+class AppError(Exception):
+    """Base Class for all custom App exceptions"""
+
     pass
 
 
-class RedditorNotFoundInDBError(Exception):
+class RedditorError(AppError):
+    """All Redditor related Errors"""
+
     pass
 
 
-class RedditorAlreadyInactiveError(Exception):
+class RedditorDoesNotExistError(RedditorError):
     pass
 
 
-class RedditorAlreadyActiveError(Exception):
+class RedditorNotFoundInDBError(RedditorError):
     pass
 
 
-class RedditorAlreadyMutedError(Exception):
+class RedditorAlreadyInactiveError(RedditorError):
     pass
 
 
-class SubredditDoesNotExistError(Exception):
+class RedditorAlreadyActiveError(RedditorError):
     pass
 
 
-class SubredditNotFoundError(Exception):
+class RedditorAlreadyMutedError(RedditorError):
     pass
 
 
-class SubredditAlreadyInactiveError(Exception):
+class SubredditError(AppError):
+    """All Subreddit related Errors"""
+
     pass
 
 
-class SubredditAlreadyActiveError(Exception):
+class SubredditDoesNotExistError(SubredditError):
+    pass
+
+
+class SubredditNotFoundError(SubredditError):
+    pass
+
+
+class SubredditAlreadyInactiveError(SubredditError):
+    pass
+
+
+class SubredditAlreadyActiveError(SubredditError):
     pass

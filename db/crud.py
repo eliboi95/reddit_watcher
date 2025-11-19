@@ -1,17 +1,23 @@
 import time
+import logging
 
 from praw.models import Comment, Submission
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
-from .exceptions import (RedditorAlreadyActiveError,
-                         RedditorAlreadyInactiveError,
-                         RedditorAlreadyMutedError, RedditorDoesNotExistError,
-                         RedditorNotFoundInDBError,
-                         SubredditAlreadyActiveError,
-                         SubredditAlreadyInactiveError, SubredditNotFoundError)
-from .models import (Notification, TelegramUser, WatchedRedditor,
-                     WatchedSubreddit)
+from .exceptions import (
+    RedditorAlreadyActiveError,
+    RedditorAlreadyInactiveError,
+    RedditorAlreadyMutedError,
+    RedditorDoesNotExistError,
+    RedditorNotFoundInDBError,
+    SubredditAlreadyActiveError,
+    SubredditAlreadyInactiveError,
+    SubredditNotFoundError,
+)
+from .models import Notification, TelegramUser, WatchedRedditor, WatchedSubreddit
+
+logger = logging.getLogger("reddit_watcher." + __name__)
 
 
 def safe_commit(session: Session, retries: int = 3, delay: float = 0.5) -> None:
@@ -25,15 +31,18 @@ def safe_commit(session: Session, retries: int = 3, delay: float = 0.5) -> None:
 
         except OperationalError as e:
             if "database is locked" in str(e).lower():
-                print(f"[DB] Database is locked, retrying ({attempt+1}/{retries})...")
+                logger.warning(
+                    f"[DB] Database is locked, retrying ({attempt+1}/{retries})..."
+                )
                 time.sleep(delay)
 
             else:
                 session.rollback()
+                logger.exception("[DB] OperationalError during commit")
                 raise
 
     session.rollback()
-
+    logger.exception(f"[DB] Failed to commit after {retries} retries")
     raise RuntimeError("[DB] Failed to commit after multiple retries.")
 
 
