@@ -2,30 +2,54 @@ import asyncio
 import logging
 from typing import Any, cast
 
-from telegram import (CallbackQuery, Chat, InlineKeyboardButton,
-                      InlineKeyboardMarkup, Message, ReplyKeyboardRemove,
-                      Update, User)
-from telegram.ext import (ApplicationBuilder, CallbackQueryHandler,
-                          CommandHandler, ContextTypes, ConversationHandler,
-                          MessageHandler, filters)
+from telegram import (
+    CallbackQuery,
+    Chat,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    Message,
+    ReplyKeyboardRemove,
+    Update,
+    User,
+)
+from telegram.ext import (
+    ApplicationBuilder,
+    CallbackQueryHandler,
+    CommandHandler,
+    ContextTypes,
+    ConversationHandler,
+    MessageHandler,
+    filters,
+)
 
 from config.config import TELEGRAM_BOT_TOKEN
-from db.exceptions import (RedditorAlreadyActiveError,
-                           RedditorAlreadyInactiveError,
-                           SubredditAlreadyActiveError,
-                           SubredditAlreadyInactiveError)
+from db.exceptions import (
+    RedditorAlreadyActiveError,
+    RedditorAlreadyInactiveError,
+    SubredditAlreadyActiveError,
+    SubredditAlreadyInactiveError,
+)
 from telegram_bot.decorators.handler_decorators import Check, require_checks
-from telegram_bot.service import (add_redditor_to_db, add_subreddit_to_db,
-                                  close_pending_notifications, get_help,
-                                  get_rating_of_redditor,
-                                  list_active_telegram_users_chat_ids,
-                                  list_muted_redditors,
-                                  list_pending_notifications, list_redditors,
-                                  list_redditors_with_rating, list_subreddits,
-                                  list_subreddits_str, mute_redditor,
-                                  rate_redditor, register_telegram_user,
-                                  remove_redditor_from_db,
-                                  remove_subreddit_from_db, unmute_redditor)
+from telegram_bot.service import (
+    add_redditor_to_db,
+    add_subreddit_to_db,
+    close_pending_notifications,
+    get_help,
+    get_rating_of_redditor,
+    list_active_telegram_users_chat_ids,
+    list_muted_redditors,
+    list_pending_notifications,
+    list_redditors,
+    list_redditors_with_rating,
+    list_subreddits,
+    list_subreddits_str,
+    mute_redditor,
+    rate_redditor,
+    register_telegram_user,
+    remove_redditor_from_db,
+    remove_subreddit_from_db,
+    unmute_redditor,
+)
 
 """InlineKeyboard Buttons"""
 TIME_UNITS = ["hours", "days", "years"]
@@ -460,10 +484,8 @@ async def rate_start(update: Update, _: ContextTypes.DEFAULT_TYPE) -> int:
         await message.reply_text("Sry No Redditors found in DB")
 
     keyboard = [
-        [
-            InlineKeyboardButton(text=f"{username}", callback_data=f"rate:{username}")
-            for username in redditors
-        ]
+        [InlineKeyboardButton(text=f"{username}", callback_data=f"rate:{username}")]
+        for username in redditors
     ]
 
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -500,7 +522,7 @@ async def rate_redditor_button(
             for rating in RATING[:5]
         ],
         [
-            InlineKeyboardButton(text=f"{rating}", callback_data=f"rating:{rating}")
+            InlineKeyboardButton(text=f"+{rating}", callback_data=f"rating:{rating}")
             for rating in RATING[5:]
         ],
     ]

@@ -1,6 +1,6 @@
 #!/bin/bash
 # Go to project directory
-cd /root/reddit_watcher
+cd /home/elia/reddit_watcher
 
 # Run main.py using venv Python
-exec /root/reddit_watcher/venv/bin/python main.py
+exec /home/elia/reddit_watcher/venv/bin/python main.py
