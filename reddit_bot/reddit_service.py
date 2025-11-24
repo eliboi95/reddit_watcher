@@ -2,10 +2,14 @@ import praw
 from praw.models import Comment, Submission
 from prawcore.exceptions import NotFound, Redirect
 
-from config.config import (REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET,
-                           REDDIT_USER_AGENT)
-from db.crud import (add_comment_to_db, add_submission_to_db,
-                     get_watched_redditors, get_watched_subreddits, is_muted)
+from config.config import REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET, REDDIT_USER_AGENT
+from db.crud import (
+    add_comment_to_db,
+    add_submission_to_db,
+    get_watched_redditors,
+    get_watched_subreddits,
+    is_muted,
+)
 from db.session import SessionLocal
 
 
@@ -60,14 +64,14 @@ def subreddit_exists(name: str) -> bool:
     return True
 
 
-def is_author_of_parent(author_name: str, comment: Comment) -> bool:
+def is_author_of_parent(comment: Comment) -> bool:
     try:
-        parent_author_name = comment.parent().author.name
+        is_submitter = comment.is_submitter
 
     except Exception as e:
         return False
 
-    return author_name == parent_author_name
+    return is_submitter
 
 
 def get_subreddits_string() -> str:

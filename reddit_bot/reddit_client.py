@@ -2,14 +2,18 @@ import time
 from typing import Generator, cast
 
 from praw.models import Comment, Submission
-from prawcore.exceptions import (RequestException, ResponseException,
-                                 ServerError)
+from prawcore.exceptions import RequestException, ResponseException, ServerError
 
 from config.config import REDDIT_POLL_INTERVAL, WATCHLIST_UPDATE_INTERVAL
-from reddit_bot.reddit_service import (add_comment, add_submission, get_reddit,
-                                       get_redditor_list,
-                                       get_subreddits_string,
-                                       is_author_of_parent, muted)
+from reddit_bot.reddit_service import (
+    add_comment,
+    add_submission,
+    get_reddit,
+    get_redditor_list,
+    get_subreddits_string,
+    is_author_of_parent,
+    muted,
+)
 
 
 def watch_loop():
@@ -72,7 +76,7 @@ def watch_loop():
                 if author_name not in users:
                     continue
 
-                if is_author_of_parent(author_name, comment):
+                if is_author_of_parent(comment):
                     continue
 
                 if muted(author_name):
